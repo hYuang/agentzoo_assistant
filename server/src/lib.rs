@@ -22,7 +22,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use zoo_agent::agent::AgentContext;
 use zoo_agent::tool::{Tool, ToolCtx, ToolError};
-use zoo_bootstrap::{AgentTool, AppExtension};
+use zoo_bootstrap::{AgentTool, App as ZooApp};
 use zoo_server::ServerState;
 use zoo_shared::api::{ApiResult, PluginsResponse};
 use zoo_shared::api::{CreatePluginRunRequest, StartPluginRunRequest};
@@ -33,12 +33,12 @@ pub mod runs;
 pub mod runs_api;
 pub mod sdk;
 
-pub struct AssistantPlugin;
+pub struct AssistantApp;
 
 /// The shared tutor instructions, appended to every stage's specific task.
 const TUTOR_PROMPT: &str = include_str!("../prompts/assistant.md");
 
-impl Plugin for AssistantPlugin {
+impl Plugin for AssistantApp {
     fn manifest(&self) -> &PluginManifest {
         static M: OnceLock<PluginManifest> = OnceLock::new();
         M.get_or_init(|| PluginManifest {
@@ -451,12 +451,22 @@ impl Tool for StartPracticeTool {
     }
 }
 
-pub fn extension() -> AppExtension {
-    AppExtension {
-        routes,
-        tools,
-        frontend,
+impl ZooApp for AssistantApp {
+    fn routes(&self, state: Arc<ServerState>) -> Router {
+        routes(state)
     }
+
+    fn tools(&self, state: Arc<ServerState>, ctx: &AgentContext) -> Vec<AgentTool> {
+        tools(state, ctx)
+    }
+
+    fn frontend(&self, state: Arc<ServerState>) -> Router {
+        frontend(state)
+    }
+}
+
+pub fn app() -> AssistantApp {
+    AssistantApp
 }
 
 #[derive(RustEmbed)]

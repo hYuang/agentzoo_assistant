@@ -14,7 +14,7 @@ use crate::sdk::{Plugin, RoleKind};
 
 /// The public catalog of this app.
 pub async fn list(_state: &ServerState) -> PluginsResponse {
-    let plugins = vec![crate::AssistantPlugin]
+    let plugins = vec![crate::AssistantApp]
         .into_iter()
         .map(|plugin| {
             let manifest = plugin.manifest();

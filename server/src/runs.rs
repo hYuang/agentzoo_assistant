@@ -800,7 +800,7 @@ fn now() -> String {
 
 async fn plugin(_state: &ServerState, id: &str) -> Result<Arc<dyn Plugin>, ApiError> {
     if id == "assistant" {
-        Ok(Arc::new(crate::AssistantPlugin))
+        Ok(Arc::new(crate::AssistantApp))
     } else {
         Err(ApiError::PluginNotFound(id.to_string()))
     }

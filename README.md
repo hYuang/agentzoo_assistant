@@ -19,13 +19,13 @@ agentzoo_assistant/
 The framework is consumed as a normal dependency; there is no sibling checkout or path dependency:
 
 ```toml
-zoo-server = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.2", default-features = false }
+zoo-server = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0", default-features = false }
 ```
 
 ```json
 {
   "dependencies": {
-    "@agentzoo/web-ui": "git+https://github.com/hYuang/agentzoo.git#v1.2.2"
+    "@agentzoo/web-ui": "git+https://github.com/hYuang/agentzoo.git#v1.3.0"
   }
 }
 ```
