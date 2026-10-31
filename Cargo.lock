@@ -3690,6 +3690,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "zoo-bootstrap"
+version = "1.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "open",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "windows-sys 0.59.0",
+ "zoo-agent",
+ "zoo-ai",
+ "zoo-plugins",
+ "zoo-server",
+ "zoo-shared",
+ "zoo-store",
+ "zoo-tui",
+]
+
+[[package]]
 name = "zoo-plugin-assistant"
 version = "1.1.0"
 dependencies = [
@@ -3728,7 +3748,6 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "futures",
- "open",
  "rfd",
  "rust-embed",
  "serde",
@@ -3739,7 +3758,6 @@ dependencies = [
  "tokio-util",
  "toml",
  "tracing",
- "tracing-subscriber",
  "uuid",
  "windows-sys 0.59.0",
  "zoo-agent",
@@ -3747,7 +3765,6 @@ dependencies = [
  "zoo-plugins",
  "zoo-shared",
  "zoo-store",
- "zoo-tui",
 ]
 
 [[package]]
@@ -3806,9 +3823,9 @@ name = "zooagent"
 version = "1.1.0"
 dependencies = [
  "tokio",
+ "zoo-bootstrap",
  "zoo-plugin-assistant",
  "zoo-plugins",
- "zoo-server",
 ]
 
 [[package]]
