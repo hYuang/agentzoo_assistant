@@ -1,6 +1,6 @@
-//! Plugin run persistence.
+//! Workflow run persistence.
 //!
-//! A run is a production instance of one vertical plugin. The host keeps
+//! A run is one execution of the app workflow. The host keeps
 //! runtime state (under `.zoo_agent`) separate from canonical artifacts so the
 //! latter can be committed to Git:
 //!
@@ -17,8 +17,8 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::sdk::{
-    is_plugin_id, ArtifactStatus, Plugin, PluginRun, RoleKind, RunArtifact, RunInit, RunStatus,
+use crate::workflow::{
+    is_workflow_id, ArtifactStatus, WorkflowApp, WorkflowRun, RoleKind, RunArtifact, RunStatus,
     StageSpec, WorkflowSpec,
 };
 use axum::http::HeaderMap;
@@ -78,7 +78,7 @@ pub async fn create_run(
     plugin_id: &str,
     body: &CreatePluginRunRequest,
 ) -> Result<PluginRunInfo, ApiError> {
-    if !is_plugin_id(plugin_id) {
+    if !is_workflow_id(plugin_id) {
         return Err(ApiError::InvalidRequest(format!(
             "invalid plugin id: {plugin_id}"
         )));
@@ -90,7 +90,7 @@ pub async fn create_run(
         .ok_or(ApiError::ProjectNotFound)?;
     let plugin = plugin(state, plugin_id).await?;
     let entry_id = resolve_entry(plugin.as_ref(), body.entry_id.as_deref())?;
-    let mut run = PluginRun::new(
+    let mut run = WorkflowRun::new(
         Uuid::new_v4().to_string(),
         plugin_id,
         pid,
@@ -120,22 +120,6 @@ pub async fn create_run(
         .await
         .map_err(internal)?;
     save_run(&dir, &run).await?;
-    let init = RunInit {
-        plugin_id: plugin_id.to_string(),
-        project_id: pid.to_string(),
-        run_id: run.id.clone(),
-        entry_id: run.entry_id.clone(),
-        project_root: project.path.clone(),
-        run_dir: dir.clone(),
-        artifact_dir: artifacts.clone(),
-        input: run.input.clone(),
-    };
-    if let Err(error) = plugin.init_run(&init) {
-        run.status = RunStatus::Failed;
-        run.updated_at = chrono::Utc::now().to_rfc3339();
-        let _ = save_run(&dir, &run).await;
-        return Err(ApiError::Internal(format!("plugin init failed: {error}")));
-    }
     refresh_artifacts(&mut run, &artifacts).await;
     save_run(&dir, &run).await?;
     Ok(to_info(run))
@@ -147,7 +131,7 @@ pub async fn list_runs(
     pid: &str,
     plugin_id: &str,
 ) -> Result<PluginRunsResponse, ApiError> {
-    if !is_plugin_id(plugin_id) {
+    if !is_workflow_id(plugin_id) {
         return Err(ApiError::InvalidRequest(format!(
             "invalid plugin id: {plugin_id}"
         )));
@@ -541,7 +525,7 @@ fn spawn_runner(
     state: &Arc<ServerState>,
     dir: PathBuf,
     artifacts: PathBuf,
-    initial: PluginRun,
+    initial: WorkflowRun,
     workflow: WorkflowSpec,
     model: Option<String>,
     stage: Option<String>,
@@ -574,7 +558,7 @@ async fn run_one_stage(
     state: &Arc<ServerState>,
     dir: &Path,
     artifacts: &Path,
-    initial: &PluginRun,
+    initial: &WorkflowRun,
     workflow: &WorkflowSpec,
     model: Option<&str>,
     requested_stage: Option<&str>,
@@ -682,7 +666,7 @@ fn is_human(workflow: &WorkflowSpec, role_id: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn check_outputs(run: &PluginRun, stage: &StageSpec, dir: &Path) -> Result<(), String> {
+fn check_outputs(run: &WorkflowRun, stage: &StageSpec, dir: &Path) -> Result<(), String> {
     for id in &stage.outputs {
         let artifact = run
             .artifact(id)
@@ -706,7 +690,7 @@ fn check_outputs(run: &PluginRun, stage: &StageSpec, dir: &Path) -> Result<(), S
 }
 
 fn stage_prompt(
-    run: &PluginRun,
+    run: &WorkflowRun,
     stage: &StageSpec,
     state_dir: &Path,
     artifact_dir: &Path,
@@ -781,7 +765,7 @@ async fn mark_failed(dir: &Path, run_id: &str, message: &str) {
     }
 }
 
-fn select_workflow(plugin: &dyn Plugin, run: &PluginRun) -> Result<WorkflowSpec, ApiError> {
+fn select_workflow(plugin: &dyn WorkflowApp, run: &WorkflowRun) -> Result<WorkflowSpec, ApiError> {
     let workflows = plugin.workflows();
     let workflow = run
         .workflow_id
@@ -798,7 +782,7 @@ fn now() -> String {
     chrono::Utc::now().to_rfc3339()
 }
 
-async fn plugin(_state: &ServerState, id: &str) -> Result<Arc<dyn Plugin>, ApiError> {
+async fn plugin(_state: &ServerState, id: &str) -> Result<Arc<dyn WorkflowApp>, ApiError> {
     if id == "assistant" {
         Ok(Arc::new(crate::AssistantApp))
     } else {
@@ -806,7 +790,7 @@ async fn plugin(_state: &ServerState, id: &str) -> Result<Arc<dyn Plugin>, ApiEr
     }
 }
 
-fn resolve_entry(plugin: &dyn Plugin, requested: Option<&str>) -> Result<Option<String>, ApiError> {
+fn resolve_entry(plugin: &dyn WorkflowApp, requested: Option<&str>) -> Result<Option<String>, ApiError> {
     let entries = plugin.entries();
     match requested.map(str::trim).filter(|id| !id.is_empty()) {
         Some(id) => {
@@ -827,8 +811,8 @@ async fn load_for_project(
     pid: &str,
     plugin_id: &str,
     run_id: &str,
-) -> Result<(zoo_store::Project, PathBuf, PluginRun), ApiError> {
-    if !is_plugin_id(plugin_id) || !is_plugin_id(run_id) {
+) -> Result<(zoo_store::Project, PathBuf, WorkflowRun), ApiError> {
+    if !is_workflow_id(plugin_id) || !is_workflow_id(run_id) {
         return Err(ApiError::InvalidRequest("invalid plugin or run id".into()));
     }
     let plugin = plugin(state, plugin_id).await?;
@@ -859,7 +843,7 @@ async fn load_for_project(
     Ok((project, dir, run))
 }
 
-async fn load_run(dir: &Path, run_id: &str) -> Result<PluginRun, ApiError> {
+async fn load_run(dir: &Path, run_id: &str) -> Result<WorkflowRun, ApiError> {
     let path = dir.join("run.json");
     let text = tokio::fs::read_to_string(&path)
         .await
@@ -868,7 +852,7 @@ async fn load_run(dir: &Path, run_id: &str) -> Result<PluginRun, ApiError> {
         .map_err(|error| ApiError::Internal(format!("invalid run {run_id}: {error}")))
 }
 
-async fn refresh_artifacts(run: &mut PluginRun, dir: &Path) {
+async fn refresh_artifacts(run: &mut WorkflowRun, dir: &Path) {
     let now = chrono::Utc::now().to_rfc3339();
     for artifact in &mut run.artifacts {
         if artifact.is_dir() {
@@ -886,7 +870,7 @@ async fn refresh_artifacts(run: &mut PluginRun, dir: &Path) {
     run.updated_at = now;
 }
 
-async fn save_run(dir: &Path, run: &PluginRun) -> Result<(), ApiError> {
+async fn save_run(dir: &Path, run: &WorkflowRun) -> Result<(), ApiError> {
     let text =
         serde_json::to_string_pretty(run).map_err(|error| ApiError::Internal(error.to_string()))?;
     tokio::fs::write(dir.join("run.json"), text)
@@ -894,7 +878,7 @@ async fn save_run(dir: &Path, run: &PluginRun) -> Result<(), ApiError> {
         .map_err(internal)
 }
 
-fn to_info(run: PluginRun) -> PluginRunInfo {
+fn to_info(run: WorkflowRun) -> PluginRunInfo {
     PluginRunInfo {
         id: run.id,
         plugin_id: run.plugin_id,
@@ -932,7 +916,7 @@ fn internal(error: std::io::Error) -> ApiError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sdk::{ArtifactSpec, GateSpec, RoleSpec, StageSpec, WorkflowSpec};
+    use crate::workflow::{ArtifactSpec, GateSpec, RoleSpec, StageSpec, WorkflowSpec};
 
     fn stage(id: &str, depends_on: &[&str], outputs: &[&str]) -> StageSpec {
         StageSpec {
@@ -1046,7 +1030,7 @@ mod tests {
             schema: None,
             version: 1,
         }];
-        let run = PluginRun::new(
+        let run = WorkflowRun::new(
             "run",
             "plugin",
             "project",

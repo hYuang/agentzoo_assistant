@@ -4,18 +4,21 @@ pub mod contribution;
 pub mod manifest;
 pub mod run;
 
+#[cfg(test)]
+mod tests;
+
 pub use contribution::{
-    ArtifactSpec, ChatTaskSpec, GateSpec, PluginEntry, PluginUiPage, RoleKind, RoleSpec, StageSpec,
+    ArtifactSpec, ChatTaskSpec, GateSpec, WorkflowEntry, WorkflowUiPage, RoleKind, RoleSpec, StageSpec,
     WorkflowSpec,
 };
-pub use manifest::{is_plugin_id, PluginManifest, PLUGIN_API_VERSION};
-pub use run::{ArtifactStatus, PluginRun, RunArtifact, RunInit, RunStatus};
+pub use manifest::{is_workflow_id, WorkflowManifest, WORKFLOW_API_VERSION};
+pub use run::{ArtifactStatus, WorkflowRun, RunArtifact, RunStatus};
 
 /// The data an app contributes to the host: manifest, workflows, artifacts,
 /// UI pages and chat suggestions. Tool registration is separate (the host
 /// extension API), so the app does not need a lifecycle/registry abstraction.
-pub trait Plugin: Send + Sync {
-    fn manifest(&self) -> &PluginManifest;
+pub trait WorkflowApp: Send + Sync {
+    fn manifest(&self) -> &WorkflowManifest;
 
     fn artifact_types(&self) -> Vec<ArtifactSpec> {
         Vec::new()
@@ -25,23 +28,15 @@ pub trait Plugin: Send + Sync {
         Vec::new()
     }
 
-    fn entries(&self) -> Vec<PluginEntry> {
+    fn entries(&self) -> Vec<WorkflowEntry> {
         Vec::new()
     }
 
-    fn ui_pages(&self) -> Vec<PluginUiPage> {
+    fn ui_pages(&self) -> Vec<WorkflowUiPage> {
         Vec::new()
-    }
-
-    fn ui_asset(&self, _path: &str) -> Option<&'static [u8]> {
-        None
     }
 
     fn chat_tasks(&self) -> Vec<ChatTaskSpec> {
         Vec::new()
-    }
-
-    fn init_run(&self, _init: &RunInit) -> Result<(), String> {
-        Ok(())
     }
 }

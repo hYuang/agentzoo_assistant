@@ -1,9 +1,7 @@
-use std::path::PathBuf;
-
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::sdk::contribution::ArtifactSpec;
+use crate::workflow::contribution::ArtifactSpec;
 
 /// The lifecycle of a plugin run (one production instance).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -74,27 +72,10 @@ impl RunArtifact {
     }
 }
 
-/// Context handed to a plugin when a run is created, so it can seed its own
-/// starting artifacts. The host has already created both directories and
-/// `run.json`.
-#[derive(Debug, Clone)]
-pub struct RunInit {
-    pub plugin_id: String,
-    pub project_id: String,
-    pub run_id: String,
-    pub entry_id: Option<String>,
-    pub project_root: PathBuf,
-    /// Runtime state (run.json and host metadata), under `.zoo_agent`.
-    pub run_dir: PathBuf,
-    /// Canonical, Git-trackable artifact directory, under `<project>/<plugin>`.
-    pub artifact_dir: PathBuf,
-    pub input: Value,
-}
-
 /// A production instance of a plugin: the persisted state every later stage
 /// and UI reads.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginRun {
+pub struct WorkflowRun {
     pub id: String,
     pub plugin_id: String,
     pub project_id: String,
@@ -124,7 +105,7 @@ pub struct PluginRun {
     pub artifacts: Vec<RunArtifact>,
 }
 
-impl PluginRun {
+impl WorkflowRun {
     /// Create a new run, materializing every artifact declared by the plugin.
     pub fn new(
         id: impl Into<String>,
@@ -207,7 +188,7 @@ mod tests {
                 version: 1,
             },
         ];
-        let mut run = PluginRun::new("run-1", "audiobook", "p-1", None, json!({}), &specs);
+        let mut run = WorkflowRun::new("run-1", "audiobook", "p-1", None, json!({}), &specs);
         assert_eq!(run.artifacts.len(), 2);
         assert_eq!(
             run.artifact("project").unwrap().status,

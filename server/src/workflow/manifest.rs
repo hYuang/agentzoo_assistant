@@ -2,19 +2,19 @@ use serde::{Deserialize, Serialize};
 
 /// The plugin API version the host implements. A plugin declares the version
 /// it was built against; the host rejects incompatible plugins at load time.
-pub const PLUGIN_API_VERSION: u32 = 1;
+pub const WORKFLOW_API_VERSION: u32 = 1;
 
 fn default_version() -> String {
     "0.1.0".to_string()
 }
 
 fn default_api_version() -> u32 {
-    PLUGIN_API_VERSION
+    WORKFLOW_API_VERSION
 }
 
 /// The static description of a plugin.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginManifest {
+pub struct WorkflowManifest {
     /// Stable, URL-safe identifier (e.g. `audiobook`).
     pub id: String,
     /// Human-readable name.
@@ -34,29 +34,10 @@ pub struct PluginManifest {
 }
 
 /// Whether `value` is safe as a plugin id / directory name.
-pub fn is_plugin_id(value: &str) -> bool {
+pub fn is_workflow_id(value: &str) -> bool {
     !value.is_empty()
         && value
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
-/// Validate a manifest before it is registered.
-pub fn validate_manifest(manifest: &PluginManifest) -> Result<(), String> {
-    if !is_plugin_id(&manifest.id) {
-        return Err(format!("invalid plugin id: {:?}", manifest.id));
-    }
-    if manifest.name.trim().is_empty() {
-        return Err("plugin name is empty".to_string());
-    }
-    if manifest.version.trim().is_empty() {
-        return Err("plugin version is empty".to_string());
-    }
-    if manifest.api_version != PLUGIN_API_VERSION {
-        return Err(format!(
-            "plugin {} targets api {}, host supports {}",
-            manifest.id, manifest.api_version, PLUGIN_API_VERSION
-        ));
-    }
-    Ok(())
-}

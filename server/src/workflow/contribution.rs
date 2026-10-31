@@ -106,7 +106,7 @@ pub struct WorkflowSpec {
 
 /// A user-facing entry point: the input contract and optional custom UI.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginEntry {
+pub struct WorkflowEntry {
     pub id: String,
     pub title: String,
     #[serde(default)]
@@ -125,7 +125,7 @@ pub struct PluginEntry {
 
 /// A page the plugin ships for its own UI (served from `/plugins/{id}/ui/`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginUiPage {
+pub struct WorkflowUiPage {
     pub id: String,
     pub title: String,
     pub page: String,

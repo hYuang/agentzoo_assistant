@@ -7,9 +7,9 @@
 
 use std::sync::{Arc, OnceLock};
 
-use crate::sdk::{
-    ArtifactSpec, ChatTaskSpec, GateSpec, Plugin, PluginEntry, PluginManifest, RoleKind, RoleSpec,
-    StageSpec, WorkflowSpec, PLUGIN_API_VERSION,
+use crate::workflow::{
+    ArtifactSpec, ChatTaskSpec, GateSpec, WorkflowApp, WorkflowEntry, WorkflowManifest, RoleKind, RoleSpec,
+    StageSpec, WorkflowSpec, WORKFLOW_API_VERSION,
 };
 use async_trait::async_trait;
 use axum::extract::State;
@@ -31,21 +31,21 @@ use zoo_shared::tool::ToolSpec;
 pub mod catalog;
 pub mod runs;
 pub mod runs_api;
-pub mod sdk;
+mod workflow;
 
 pub struct AssistantApp;
 
 /// The shared tutor instructions, appended to every stage's specific task.
 const TUTOR_PROMPT: &str = include_str!("../prompts/assistant.md");
 
-impl Plugin for AssistantApp {
-    fn manifest(&self) -> &PluginManifest {
-        static M: OnceLock<PluginManifest> = OnceLock::new();
-        M.get_or_init(|| PluginManifest {
+impl WorkflowApp for AssistantApp {
+    fn manifest(&self) -> &WorkflowManifest {
+        static M: OnceLock<WorkflowManifest> = OnceLock::new();
+        M.get_or_init(|| WorkflowManifest {
             id: "assistant".into(),
             name: "My Learning Assistant".into(),
             version: "0.1.0".into(),
-            api_version: PLUGIN_API_VERSION,
+            api_version: WORKFLOW_API_VERSION,
             description: Some(
                 "Learning assistant: turn a topic or materials into a knowledge map, study plan, notes, practice, and review."
                     .into(),
@@ -167,8 +167,8 @@ impl Plugin for AssistantApp {
         }]
     }
 
-    fn entries(&self) -> Vec<PluginEntry> {
-        vec![PluginEntry {
+    fn entries(&self) -> Vec<WorkflowEntry> {
+        vec![WorkflowEntry {
             id: "learning".into(),
             title: "Timed practice session".into(),
             description: "Turn knowledge points, a syllabus, or past papers into a timed practice set, then analyze the result."
