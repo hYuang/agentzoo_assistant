@@ -9,7 +9,7 @@
 #   make clean           -> remove bin/
 #   make distclean       -> cargo clean + remove bin/
 #
-# Framework crates are consumed from the private git repository (see
+# Framework crates are consumed from the git repository (see
 # Cargo.toml), not from a sibling checkout.
 
 CARGO ?= cargo
