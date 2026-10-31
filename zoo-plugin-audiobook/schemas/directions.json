@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Audiobook direction candidates",
+  "type": "object",
+  "properties": {
+    "directions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "premise"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "premise": { "type": "string" },
+          "hook": { "type": "string" },
+          "genre": { "type": "string" },
+          "audience": { "type": "string" },
+          "tone": { "type": "string" },
+          "length": { "type": "string" },
+          "why_it_works": { "type": "string" }
+        }
+      }
+    },
+    "constraints": { "type": "string" }
+  }
+}

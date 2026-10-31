@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Audiobook QC report",
+  "type": "object",
+  "properties": {
+    "passed": { "type": "boolean" },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "ok"],
+        "properties": {
+          "id": { "type": "string" },
+          "ok": { "type": "boolean" },
+          "detail": { "type": "string" },
+          "location": { "type": "string" }
+        }
+      }
+    },
+    "issues": { "type": "array", "items": { "type": "object" } }
+  }
+}

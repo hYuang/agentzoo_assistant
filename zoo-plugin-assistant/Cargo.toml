@@ -1,0 +1,16 @@
+[package]
+name = "zoo-plugin-assistant"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+zoo-plugins = { workspace = true }
+zoo-agent = { workspace = true }
+zoo-shared = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
