@@ -48,4 +48,4 @@ make test
 make release
 ```
 
-The binary serves the frontend from `web/dist` (debug) or the copied `bin/web` (packaged build).
+The binary serves the frontend from `web/dist` by default. Set `ZOO_WEB_DIST` to serve a different directory (for example `bin/web` in a packaged build).
