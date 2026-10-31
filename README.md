@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Synapse Studio sync
 
-The Studio sync module publishes a generated practice set plus the full `knowledge-map.md` into the Synapse Studio quiz bank. Studio stores that file as a single knowledge point (its Markdown content), and all synced questions link to it. All Studio traffic goes through the gateway: the existing Studio APIs are exposed under `/gateway/public/service/studio/v1/AuthService/*` and `/gateway/api/service/studio/v1/QuizService/*`. No Studio-side changes are required; the gateway needs the corresponding `gateway_route` rows (`Studio.Auth.*` / `Studio.Quiz.*`) seeded from `gateway/backend/sql/dml.sql`.
+The Studio sync module (Chinese UI name: 智学工坊) publishes a generated practice set plus the full `knowledge-map.md` into the Synapse Studio quiz bank. Studio stores that file as a single knowledge point (its Markdown content), and all synced questions link to it. All Studio traffic goes through the gateway: the existing Studio APIs are exposed under `/gateway/public/service/studio/v1/AuthService/*` and `/gateway/api/service/studio/v1/QuizService/*`. No Studio-side changes are required; the gateway needs the corresponding `gateway_route` rows (`Studio.Auth.*` / `Studio.Quiz.*`) seeded from `gateway/backend/sql/dml.sql`.
 
 Configure the assistant with:
 

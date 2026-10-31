@@ -1,7 +1,7 @@
 import { useI18n } from '@agentzoo/web-ui'
 
 const en = {
-  brand: 'My Learning Assistant',
+  brand: 'ZhiXue Studio',
   preparing: 'Preparing learning session…',
   newSession: 'New session',
   chatStartTitle: 'Tell the assistant what to practice',
@@ -209,7 +209,7 @@ const en = {
 export type AssistantKey = keyof typeof en
 
 const zh: Record<AssistantKey, string> = {
-  brand: '我的学习助手',
+  brand: '智学工坊',
   preparing: '正在准备学习会话…',
   newSession: '新的学习',
   chatStartTitle: '在对话里告诉助手你要刷什么',
@@ -270,16 +270,16 @@ const zh: Record<AssistantKey, string> = {
   workbench: '工作台',
   moduleOverview: '概览',
   moduleKnowledgeBase: '知识库',
-  moduleSynapse: 'Studio 同步',
-  synapseTitle: 'Synapse Studio',
-  synapseHint: '把本次生成的练习题和完整知识图谱发布到 Synapse Studio 题库（配置的租户下）。',
+  moduleSynapse: '题库同步',
+  synapseTitle: '智学工坊',
+  synapseHint: '把本次生成的练习题和完整知识图谱发布到智学工坊题库（配置的租户下）。',
   synapseLoading: '正在读取同步状态…',
   synapseConfigured: '网关：{url} · 租户 {tenant}',
   synapseNotConfigured:
-    '尚未配置 Synapse Studio。请设置 SYNAPSE_TENANT_ID 和 SYNAPSE_STUDIO_REFRESH_TOKEN（或 SYNAPSE_STUDIO_TOKEN），然后重启服务。',
-  studioAccount: 'Studio 账号',
+    '尚未配置智学工坊。请设置 SYNAPSE_TENANT_ID 和 SYNAPSE_STUDIO_REFRESH_TOKEN（或 SYNAPSE_STUDIO_TOKEN），然后重启服务。',
+  studioAccount: '智学工坊账号',
   synapseNeedLogin:
-    '请在左下角账号面板登录 Studio，或在服务端配置 SYNAPSE_STUDIO_REFRESH_TOKEN。',
+    '请在左下角账号面板登录智学工坊，或在服务端配置 SYNAPSE_STUDIO_REFRESH_TOKEN。',
   synapseTenant: '租户',
   synapseAccount: '账号',
   synapsePassword: '密码',
@@ -287,15 +287,15 @@ const zh: Record<AssistantKey, string> = {
   synapseLoggingIn: '登录中…',
   synapseLogout: '退出登录',
   synapseCancel: '取消',
-  synapseNoQuiz: '请先生成练习题，再发布到 Studio。',
-  synapseSync: '发布到 Studio',
+  synapseNoQuiz: '请先生成练习题，再发布到智学工坊。',
+  synapseSync: '发布到智学工坊',
   synapseResync: '重新发布（覆盖）',
   synapseSyncing: '发布中…',
-  synapsePaper: 'Studio 试卷',
+  synapsePaper: '智学工坊试卷',
   synapseQuestions: '题目数',
   synapseKnowledge: '知识图谱',
   synapseLastSync: '发布时间',
-  synapseAlready: '重新发布会替换之前的 Studio 试卷和题目。',
+  synapseAlready: '重新发布会替换之前的智学工坊试卷和题目。',
   moduleMaterials: '学习资料',
   moduleKnowledge: '知识点',
   modulePlan: '学习计划',

@@ -5,7 +5,7 @@
 - Single-crate workspace: `server/` (crate `zoo-agent-server`, binary `zooagent`) + `web/` (Vite/React).
 - The `agentzoo` framework is a git dependency pinned to a tag (`v1.3.0` in `Cargo.toml` and `web/package.json`). It is NOT vendored in this repo. To upgrade: change the tag in both files, then `cargo update` + `npm install`.
 - `AssistantApp` (server/src/lib.rs) implements `zoo_bootstrap::App`; `routes()` returns a plain axum `Router`. Write handlers/routes like a standalone axum app.
-- The `web/dist` bundle is embedded into the binary at compile time via `rust-embed` (server/src/lib.rs:472). Rebuild the frontend whenever it changes, or the binary serves stale assets.
+- The `web/dist` bundle is embedded into the binary at compile time via `rust-embed` (server/src/lib.rs:472). Rebuild the frontend whenever it changes, or the binary serves stale assets. If only `web/dist` changed, cargo may skip recompiling — touch `server/src/lib.rs` (or `cargo clean -p zoo-agent-server`) to force re-embedding.
 - Workflow definition (stages, gates, artifacts, chat tasks) lives declaratively in `server/src/lib.rs`; shared tutor prompt is `server/prompts/assistant.md` (Chinese stage prompts are intentional).
 
 ## Build & run
