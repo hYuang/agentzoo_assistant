@@ -22,10 +22,12 @@ ZVEC_FEATURE := $(if $(filter 1,$(ZVEC)),--features zvec,)
 ifeq ($(OS),Windows_NT)
   EXE := .exe
   FRONTEND_CMD := cmd /c "cd $(FRAMEWORK)/zoo-web && npm install && npm run build"
+  PLUGIN_FRONTEND_CMD := cmd /c "cd assistant-web && npm install && npm run build"
   ZVEC_DYLIB := zvec_c_api.dll
 else
   EXE :=
   FRONTEND_CMD := cd $(FRAMEWORK)/zoo-web && npm install && npm run build
+  PLUGIN_FRONTEND_CMD := cd assistant-web && npm install && npm run build
   ZVEC_OS := $(shell uname -s)
   ifeq ($(ZVEC_OS),Darwin)
     ZVEC_DYLIB := libzvec_c_api.dylib
@@ -34,14 +36,17 @@ else
   endif
 endif
 
-.PHONY: all build release test run frontend fmt clean distclean stage-zvec
+.PHONY: all build release test run frontend plugin-frontend fmt clean distclean stage-zvec
 
 all: build
 
 frontend:
 	$(FRONTEND_CMD)
 
-build: frontend
+plugin-frontend:
+	$(PLUGIN_FRONTEND_CMD)
+
+build: plugin-frontend frontend
 	$(CARGO) build --no-default-features $(ZVEC_FEATURE)
 	mkdir -p $(BIN_DIR)
 	cp target/debug/zooagent$(EXE) $(BIN_DIR)/zooagent$(EXE)
@@ -49,7 +54,7 @@ ifeq ($(ZVEC),1)
 	$(MAKE) stage-zvec
 endif
 
-release: frontend
+release: plugin-frontend frontend
 	$(CARGO) build --release --no-default-features $(ZVEC_FEATURE)
 	mkdir -p $(BIN_DIR)
 	cp target/release/zooagent$(EXE) $(BIN_DIR)/zooagent$(EXE)
