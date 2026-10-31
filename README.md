@@ -67,7 +67,7 @@ make release
 
 The frontend is embedded into the server binary at build time, so `web/` must be built before the Rust server.
 
-## Open source and framework code
+## Publishing and framework code
 
 This repository contains only assistant application code. It does not vendor or copy the `agentzoo` framework source:
 
@@ -76,10 +76,12 @@ This repository contains only assistant application code. It does not vendor or 
 - `web/package-lock.json` contains the npm dependency URL and commit.
 - `web/dist/`, `bin/`, and `target/` are build outputs and are gitignored. The generated frontend bundle and binary are not committed.
 
-One practical requirement for open source: build users need read access to the framework repository. If this app is public while `agentzoo` remains private, external users cannot install the dependencies. Either make the framework repository public or publish the framework crates/package to a registry before publishing this app.
+One practical requirement for publishing: build users need read access to the framework repository. If this app is public while `agentzoo` remains private, external users cannot install the dependencies. Either make the framework repository public or publish the framework crates/package to a registry before publishing this app.
 
 Before publishing, review `zooagent.json` / environment files for secrets. The current tree does not commit model API keys.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Proprietary, all rights reserved. No use, copying, modification, distribution, hosting, or commercial use is permitted without prior written permission. See [LICENSE](LICENSE).
+
+The `agentzoo` framework is a separate dependency and remains under its own license.
