@@ -11,12 +11,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": true,
-    "baseUrl": ".",
-    "paths": {
-      "@agentzoo/web-ui": ["./node_modules/@agentzoo/web-ui/zoo-web-ui/src/index.ts"],
-      "@agentzoo/web-ui/*": ["./node_modules/@agentzoo/web-ui/zoo-web-ui/src/*"]
-    }
+    "strict": true
   },
   "include": ["src"]
 }

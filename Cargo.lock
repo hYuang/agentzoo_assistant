@@ -3365,8 +3365,8 @@ checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
 name = "zoo-agent"
-version = "1.2.1"
-source = "git+https://github.com/hYuang/agentzoo.git?tag=v1.2.1#fb17d35e73a24d656a5ea7b4009196cdebd17cc5"
+version = "1.2.2"
+source = "git+https://github.com/hYuang/agentzoo.git?tag=v1.2.2#12e9c0480d0da8310df69ed30b2b1ac62d0352d4"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -3410,8 +3410,8 @@ dependencies = [
 
 [[package]]
 name = "zoo-ai"
-version = "1.2.1"
-source = "git+https://github.com/hYuang/agentzoo.git?tag=v1.2.1#fb17d35e73a24d656a5ea7b4009196cdebd17cc5"
+version = "1.2.2"
+source = "git+https://github.com/hYuang/agentzoo.git?tag=v1.2.2#12e9c0480d0da8310df69ed30b2b1ac62d0352d4"
 dependencies = [
  "async-trait",
  "futures",
@@ -3427,8 +3427,8 @@ dependencies = [
 
 [[package]]
 name = "zoo-bootstrap"
-version = "1.2.1"
-source = "git+https://github.com/hYuang/agentzoo.git?tag=v1.2.1#fb17d35e73a24d656a5ea7b4009196cdebd17cc5"
+version = "1.2.2"
+source = "git+https://github.com/hYuang/agentzoo.git?tag=v1.2.2#12e9c0480d0da8310df69ed30b2b1ac62d0352d4"
 dependencies = [
  "axum",
  "chrono",
@@ -3446,8 +3446,8 @@ dependencies = [
 
 [[package]]
 name = "zoo-server"
-version = "1.2.1"
-source = "git+https://github.com/hYuang/agentzoo.git?tag=v1.2.1#fb17d35e73a24d656a5ea7b4009196cdebd17cc5"
+version = "1.2.2"
+source = "git+https://github.com/hYuang/agentzoo.git?tag=v1.2.2#12e9c0480d0da8310df69ed30b2b1ac62d0352d4"
 dependencies = [
  "async-trait",
  "axum",
@@ -3474,8 +3474,8 @@ dependencies = [
 
 [[package]]
 name = "zoo-shared"
-version = "1.2.1"
-source = "git+https://github.com/hYuang/agentzoo.git?tag=v1.2.1#fb17d35e73a24d656a5ea7b4009196cdebd17cc5"
+version = "1.2.2"
+source = "git+https://github.com/hYuang/agentzoo.git?tag=v1.2.2#12e9c0480d0da8310df69ed30b2b1ac62d0352d4"
 dependencies = [
  "chrono",
  "schemars",
@@ -3486,8 +3486,8 @@ dependencies = [
 
 [[package]]
 name = "zoo-store"
-version = "1.2.1"
-source = "git+https://github.com/hYuang/agentzoo.git?tag=v1.2.1#fb17d35e73a24d656a5ea7b4009196cdebd17cc5"
+version = "1.2.2"
+source = "git+https://github.com/hYuang/agentzoo.git?tag=v1.2.2#12e9c0480d0da8310df69ed30b2b1ac62d0352d4"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
