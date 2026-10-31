@@ -13,8 +13,11 @@ use crate::sdk::{
 };
 use async_trait::async_trait;
 use axum::extract::State;
+use axum::http::{header, StatusCode, Uri};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use rust_embed::RustEmbed;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use zoo_agent::agent::AgentContext;
@@ -449,7 +452,41 @@ impl Tool for StartPracticeTool {
 }
 
 pub fn extension() -> AppExtension {
-    AppExtension { routes, tools }
+    AppExtension {
+        routes,
+        tools,
+        frontend,
+    }
+}
+
+#[derive(RustEmbed)]
+#[folder = "../web/dist"]
+struct WebAssets;
+
+fn frontend(state: Arc<ServerState>) -> Router {
+    zoo_server::router(state).fallback(serve_frontend)
+}
+
+async fn serve_frontend(uri: Uri) -> Response {
+    let path = uri.path().trim_start_matches('/');
+    let candidates = if path.is_empty() {
+        vec!["index.html"]
+    } else {
+        vec![path, "index.html"]
+    };
+    for candidate in candidates {
+        if let Some(file) = WebAssets::get(candidate) {
+            return (
+                [(
+                    header::CONTENT_TYPE,
+                    zoo_server::util::mime::mime_for(candidate),
+                )],
+                file.data.to_vec(),
+            )
+                .into_response();
+        }
+    }
+    StatusCode::NOT_FOUND.into_response()
 }
 
 async fn list_plugins(State(state): State<Arc<ServerState>>) -> Json<ApiResult<PluginsResponse>> {

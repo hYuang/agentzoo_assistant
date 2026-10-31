@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build"
+    "build": "tsc --noEmit && vite build && node -e \"require('fs').writeFileSync('dist/.gitkeep','')\""
   },
   "dependencies": {
-    "@agentzoo/web-ui": "git+https://github.com/hYuang/agentzoo.git#v1.2.0",
+    "@agentzoo/web-ui": "github:hYuang/agentzoo#v1.2.1",
     "katex": "^0.18.9",
     "lucide-react": "^1.48.0",
     "react": "^18.3.1",
