@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { listPlugins } from '@agentzoo/web-ui/api/api'
-import { MoreDialog } from '@agentzoo/web-ui/components/common/MoreDialog/MoreDialog'
-import { NewProjectDialog } from '@agentzoo/web-ui/components/business/NewProjectDialog/NewProjectDialog'
-import { HomeTopbar } from '@agentzoo/web-ui/pages/home/HomeTopbar'
-import { useChat } from '@agentzoo/web-ui/store/chatContext'
-import { useI18n } from '@agentzoo/web-ui/i18n'
-import type { PluginInfo } from '@agentzoo/web-ui/types'
+import {
+  HomeTopbar,
+  MoreDialog,
+  NewProjectDialog,
+  listPlugins,
+  useChat,
+  useI18n,
+  type PluginInfo,
+} from '@agentzoo/web-ui'
 import { AssistantDashboard } from './assistant/AssistantDashboard'
 
 export function AssistantHome() {
