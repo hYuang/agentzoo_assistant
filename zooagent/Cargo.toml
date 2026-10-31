@@ -1,0 +1,27 @@
+[package]
+name = "zooagent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "zooagent"
+path = "src/main.rs"
+
+[features]
+default = ["zvec"]
+zvec = ["zoo-server/zvec"]
+assistant = ["dep:zoo-plugin-assistant"]
+audiobook = ["dep:zoo-plugin-audiobook"]
+observability = ["dep:zoo-plugin-observability"]
+paper = ["dep:zoo-plugin-paper"]
+
+[dependencies]
+zoo-server = { workspace = true }
+zoo-agent = { workspace = true }
+zoo-plugins = { workspace = true }
+zoo-plugin-assistant = { workspace = true, optional = true }
+zoo-plugin-audiobook = { workspace = true, optional = true }
+zoo-plugin-observability = { workspace = true, optional = true }
+zoo-plugin-paper = { workspace = true, optional = true }
+tokio = { workspace = true }
