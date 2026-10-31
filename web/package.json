@@ -1,6 +1,7 @@
 {
   "name": "@agentzoo/web",
   "private": true,
+  "license": "UNLICENSED",
   "version": "1.1.0",
   "type": "module",
   "scripts": {
