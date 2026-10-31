@@ -1,6 +1,6 @@
-//! Plugin catalog exposed by the host.
+//! App catalog exposed by the host.
 //!
-//! Plugin composition lives in the product binary (see `app::BuiltinPlugins`),
+//! App composition lives in the product binary.
 //! not in the framework.
 
 use zoo_shared::api::{
@@ -10,7 +10,7 @@ use zoo_shared::api::{
 
 use zoo_server::service::ServerState;
 
-use crate::sdk::{Plugin, RoleKind};
+use crate::workflow::{WorkflowApp, RoleKind};
 
 /// The public catalog of this app.
 pub async fn list(_state: &ServerState) -> PluginsResponse {
