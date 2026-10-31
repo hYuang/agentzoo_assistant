@@ -1,9 +1,9 @@
 use zoo_agent_server::sdk::Plugin;
-use zoo_agent_server::AssistantPlugin;
+use zoo_agent_server::AssistantApp;
 
 #[test]
 fn workflow_references_are_consistent() {
-    let plugin = AssistantPlugin;
+    let plugin = AssistantApp;
     let manifest = plugin.manifest();
     assert_eq!(manifest.id, "assistant");
     let workflows = plugin.workflows();

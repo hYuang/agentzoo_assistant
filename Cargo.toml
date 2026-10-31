@@ -20,9 +20,9 @@ uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Framework crates are consumed from the git repository at a pinned tag.
-zoo-shared = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.2" }
-zoo-agent = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.2" }
-zoo-server = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.2", default-features = false }
-zoo-store = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.2" }
-zoo-bootstrap = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.2", default-features = false }
+zoo-shared = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0" }
+zoo-agent = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0" }
+zoo-server = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0", default-features = false }
+zoo-store = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0" }
+zoo-bootstrap = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0", default-features = false }
 
