@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "zooagent",
-    "zoo-plugin-assistant",
+    "assistant",
 ]
 
 [workspace.package]
@@ -29,4 +29,4 @@ zoo-agent = { path = "../agentzoo/zoo-agent" }
 zoo-server = { path = "../agentzoo/zoo-server", default-features = false }
 zoo-store = { path = "../agentzoo/zoo-store" }
 zoo-bootstrap = { path = "../agentzoo/zoo-bootstrap", default-features = false }
-zoo-plugin-assistant = { path = "zoo-plugin-assistant" }
+zoo-assistant = { path = "assistant" }

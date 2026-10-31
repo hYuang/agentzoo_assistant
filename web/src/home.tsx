@@ -35,7 +35,7 @@ export function AssistantHome() {
       {projectId && plugin ? (
         <iframe
           title={plugin.name}
-          src={`/plugins/assistant/ui/${page}?projectId=${encodeURIComponent(projectId)}`}
+          src={`/apps/assistant/ui/${page}?projectId=${encodeURIComponent(projectId)}`}
           style={{ border: 0, width: '100%', height: '100%' }}
         />
       ) : (

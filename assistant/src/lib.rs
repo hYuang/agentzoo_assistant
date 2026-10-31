@@ -481,42 +481,42 @@ async fn list_plugins(State(state): State<Arc<ServerState>>) -> Json<ApiResult<P
 
 fn routes(state: Arc<ServerState>) -> Router {
     Router::new()
-        .route("/plugins", get(list_plugins))
-        .route("/plugins/{name}/ui/{*path}", get(crate::ui::ui_asset))
+        .route("/apps", get(list_plugins))
+        .route("/apps/{name}/ui/{*path}", get(crate::ui::ui_asset))
         .route(
-            "/projects/{pid}/plugins/{plugin}/runs",
+            "/projects/{pid}/apps/{plugin}/runs",
             get(crate::runs_api::list).post(crate::runs_api::create),
         )
         .route(
-            "/projects/{pid}/plugins/{plugin}/runs/{run}",
+            "/projects/{pid}/apps/{plugin}/runs/{run}",
             get(crate::runs_api::get),
         )
         .route(
-            "/projects/{pid}/plugins/{plugin}/runs/{run}/start",
+            "/projects/{pid}/apps/{plugin}/runs/{run}/start",
             post(crate::runs_api::start),
         )
         .route(
-            "/projects/{pid}/plugins/{plugin}/runs/{run}/approve",
+            "/projects/{pid}/apps/{plugin}/runs/{run}/approve",
             post(crate::runs_api::approve),
         )
         .route(
-            "/projects/{pid}/plugins/{plugin}/runs/{run}/reject",
+            "/projects/{pid}/apps/{plugin}/runs/{run}/reject",
             post(crate::runs_api::reject),
         )
         .route(
-            "/projects/{pid}/plugins/{plugin}/runs/{run}/artifacts/{artifact}",
+            "/projects/{pid}/apps/{plugin}/runs/{run}/artifacts/{artifact}",
             get(crate::runs_api::read_artifact).put(crate::runs_api::write_artifact),
         )
         .route(
-            "/projects/{pid}/plugins/{plugin}/runs/{run}/directories",
+            "/projects/{pid}/apps/{plugin}/runs/{run}/directories",
             post(crate::runs_api::create_directory),
         )
         .route(
-            "/projects/{pid}/plugins/{plugin}/runs/{run}/uploads",
+            "/projects/{pid}/apps/{plugin}/runs/{run}/uploads",
             post(crate::runs_api::upload),
         )
         .route(
-            "/projects/{pid}/plugins/{plugin}/runs/{run}/uploads/{*rel}",
+            "/projects/{pid}/apps/{plugin}/runs/{run}/uploads/{*rel}",
             get(crate::runs_api::serve_upload).delete(crate::runs_api::delete_upload),
         )
         .with_state(state)

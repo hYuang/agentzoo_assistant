@@ -2,5 +2,5 @@
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    zoo_bootstrap::app::run(zoo_plugin_assistant::extension()).await
+    zoo_bootstrap::app::run(zoo_assistant::extension()).await
 }

@@ -1,5 +1,5 @@
-use zoo_plugin_assistant::sdk::Plugin;
-use zoo_plugin_assistant::AssistantPlugin;
+use zoo_assistant::sdk::Plugin;
+use zoo_assistant::AssistantPlugin;
 
 #[test]
 fn workflow_references_are_consistent() {
