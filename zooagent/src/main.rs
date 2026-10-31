@@ -1,14 +1,6 @@
-//! Product binary: composes the framework with the learning assistant plugin.
-
-use std::sync::Arc;
-
-use zoo_plugins::{Plugin, PluginCtx};
-
-fn builtin(_base: &PluginCtx) -> Vec<Arc<dyn Plugin>> {
-    vec![Arc::new(zoo_plugin_assistant::AssistantPlugin)]
-}
+//! Product binary: composes the framework with the learning assistant app.
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    zoo_bootstrap::app::run(builtin).await
+    zoo_bootstrap::app::run(zoo_plugin_assistant::extension()).await
 }

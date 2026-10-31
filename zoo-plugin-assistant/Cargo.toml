@@ -5,12 +5,22 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-zoo-plugins = { workspace = true }
+zoo-server = { workspace = true }
+zoo-bootstrap = { workspace = true }
+zoo-store = { workspace = true }
 zoo-agent = { workspace = true }
 zoo-shared = { workspace = true }
+axum = { workspace = true }
+base64 = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 async-trait = { workspace = true }
+tokio = { workspace = true }
+tracing = "0.1"
+toml = "0.8"
 
 [dev-dependencies]
 tokio = { workspace = true }

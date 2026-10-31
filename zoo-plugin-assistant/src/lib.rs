@@ -11,12 +11,26 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use zoo_agent::tool::{Tool, ToolCtx, ToolError};
-use zoo_plugins::{
+use crate::sdk::{
     ArtifactSpec, ChatTaskSpec, GateSpec, Plugin, PluginCtx, PluginEntry, PluginManifest,
-    PluginRunControl, PluginTool, PluginUiPage, RoleKind, RoleSpec, StageSpec, WorkflowSpec,
+    PluginTool, PluginUiPage, RoleKind, RoleSpec, StageSpec, WorkflowSpec,
     PLUGIN_API_VERSION,
 };
+use axum::extract::State;
+use axum::routing::{get, post};
+use axum::{Json, Router};
+use zoo_agent::agent::AgentContext;
+use zoo_bootstrap::{AgentTool, AppExtension};
+use zoo_server::ServerState;
+use zoo_shared::api::{ApiResult, PluginsResponse};
+use zoo_shared::api::{CreatePluginRunRequest, StartPluginRunRequest};
 use zoo_shared::tool::ToolSpec;
+
+pub mod catalog;
+pub mod runs;
+pub mod runs_api;
+pub mod sdk;
+pub mod ui;
 
 pub struct AssistantPlugin;
 
@@ -207,16 +221,8 @@ impl Plugin for AssistantPlugin {
         }
     }
 
-    fn tools(&self, ctx: &PluginCtx) -> Vec<PluginTool> {
-        let Some(runs) = ctx.runs.clone() else {
-            return Vec::new();
-        };
-        vec![PluginTool {
-            // The coordinator owns the conversation. It asks the learner for
-            // the missing fields, confirms the summary, then starts the run.
-            agent: "main".into(),
-            tool: Arc::new(StartPracticeTool { runs }),
-        }]
+    fn tools(&self, _ctx: &PluginCtx) -> Vec<PluginTool> {
+        Vec::new()
     }
 
     fn chat_tasks(&self) -> Vec<ChatTaskSpec> {
@@ -326,8 +332,8 @@ fn gated(mut stage: StageSpec, gate: &str) -> StageSpec {
 /// The conversational entry point: after the learner and the coordinator agree
 /// on the practice setup, this tool creates the learning run and starts its
 /// intake stage. The dashboard then picks up the new run automatically.
-struct StartPracticeTool {
-    runs: Arc<dyn PluginRunControl>,
+pub struct StartPracticeTool {
+    pub state: Arc<ServerState>,
 }
 
 #[derive(Deserialize)]
@@ -424,15 +430,29 @@ impl Tool for StartPracticeTool {
             "question_count": question_count,
             "time_limit_minutes": time_limit_minutes,
         });
-        let run_id = self
-            .runs
-            .create_run(ctx.project_id.as_str(), "assistant", "learning", input)
-            .await
-            .map_err(ToolError::Execution)?;
-        if let Err(error) = self
-            .runs
-            .start_run(ctx.project_id.as_str(), "assistant", &run_id, Some("intake"))
-            .await
+        let created = crate::runs::create_run(
+            &self.state,
+            ctx.project_id.as_str(),
+            "assistant",
+            &CreatePluginRunRequest {
+                entry_id: Some("learning".into()),
+                input,
+            },
+        )
+        .await
+        .map_err(|error| ToolError::Execution(error.to_string()))?;
+        let run_id = created.id;
+        if let Err(error) = crate::runs::start_run(
+            &self.state,
+            ctx.project_id.as_str(),
+            "assistant",
+            &run_id,
+            &StartPluginRunRequest {
+                model: None,
+                stage: Some("intake".into()),
+            },
+        )
+        .await
         {
             return Err(ToolError::Execution(format!(
                 "created learning run {run_id} but could not start it: {error}"
@@ -446,4 +466,65 @@ impl Tool for StartPracticeTool {
              \"Start timed practice\"."
         ))
     }
+}
+
+pub fn extension() -> AppExtension {
+    AppExtension {
+        routes,
+        tools,
+    }
+}
+
+async fn list_plugins(State(state): State<Arc<ServerState>>) -> Json<ApiResult<PluginsResponse>> {
+    Json(ApiResult::ok(crate::catalog::list(&state).await))
+}
+
+fn routes(state: Arc<ServerState>) -> Router {
+    Router::new()
+        .route("/plugins", get(list_plugins))
+        .route("/plugins/{name}/ui/{*path}", get(crate::ui::ui_asset))
+        .route(
+            "/projects/{pid}/plugins/{plugin}/runs",
+            get(crate::runs_api::list).post(crate::runs_api::create),
+        )
+        .route(
+            "/projects/{pid}/plugins/{plugin}/runs/{run}",
+            get(crate::runs_api::get),
+        )
+        .route(
+            "/projects/{pid}/plugins/{plugin}/runs/{run}/start",
+            post(crate::runs_api::start),
+        )
+        .route(
+            "/projects/{pid}/plugins/{plugin}/runs/{run}/approve",
+            post(crate::runs_api::approve),
+        )
+        .route(
+            "/projects/{pid}/plugins/{plugin}/runs/{run}/reject",
+            post(crate::runs_api::reject),
+        )
+        .route(
+            "/projects/{pid}/plugins/{plugin}/runs/{run}/artifacts/{artifact}",
+            get(crate::runs_api::read_artifact).put(crate::runs_api::write_artifact),
+        )
+        .route(
+            "/projects/{pid}/plugins/{plugin}/runs/{run}/directories",
+            post(crate::runs_api::create_directory),
+        )
+        .route(
+            "/projects/{pid}/plugins/{plugin}/runs/{run}/uploads",
+            post(crate::runs_api::upload),
+        )
+        .route(
+            "/projects/{pid}/plugins/{plugin}/runs/{run}/uploads/{*rel}",
+            get(crate::runs_api::serve_upload).delete(crate::runs_api::delete_upload),
+        )
+        .with_state(state)
+}
+
+fn tools(state: Arc<ServerState>, _ctx: &AgentContext) -> Vec<AgentTool> {
+    vec![AgentTool {
+        agent: "main".into(),
+        tool: Arc::new(StartPracticeTool { state }),
+    }]
 }

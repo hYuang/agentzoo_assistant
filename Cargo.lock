@@ -3415,7 +3415,6 @@ dependencies = [
  "windows-sys 0.59.0",
  "zoo-agent",
  "zoo-ai",
- "zoo-plugins",
  "zoo-server",
  "zoo-shared",
  "zoo-store",
@@ -3426,27 +3425,19 @@ name = "zoo-plugin-assistant"
 version = "1.1.0"
 dependencies = [
  "async-trait",
- "serde",
- "serde_json",
- "tokio",
- "zoo-agent",
- "zoo-plugins",
- "zoo-shared",
-]
-
-[[package]]
-name = "zoo-plugins"
-version = "1.1.0"
-dependencies = [
- "async-trait",
+ "axum",
+ "base64 0.22.1",
  "chrono",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
  "toml",
+ "tracing",
  "uuid",
  "zoo-agent",
+ "zoo-bootstrap",
+ "zoo-server",
  "zoo-shared",
  "zoo-store",
 ]
@@ -3474,7 +3465,6 @@ dependencies = [
  "windows-sys 0.59.0",
  "zoo-agent",
  "zoo-ai",
- "zoo-plugins",
  "zoo-shared",
  "zoo-store",
 ]
@@ -3523,7 +3513,6 @@ dependencies = [
  "tokio",
  "zoo-bootstrap",
  "zoo-plugin-assistant",
- "zoo-plugins",
 ]
 
 [[package]]
