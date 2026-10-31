@@ -26,7 +26,7 @@ else
   FRONTEND_CMD := cd web && npm install && npm run build
 endif
 
-.PHONY: all build release test run frontend fmt clean distclean
+.PHONY: all build release test run frontend fmt clean distclean web
 
 all: build
 
@@ -49,6 +49,9 @@ test:
 run:
 	$(MAKE) build
 	./$(BIN_DIR)/zooagent$(EXE) web
+
+# Mode marker for `make run web`.
+web:
 
 fmt:
 	$(CARGO) fmt
