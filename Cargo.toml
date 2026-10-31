@@ -22,5 +22,5 @@ tokio = { version = "1", features = ["full"] }
 zoo-shared = { path = "../agentzoo/zoo-shared" }
 zoo-agent = { path = "../agentzoo/zoo-agent" }
 zoo-plugins = { path = "../agentzoo/zoo-plugins" }
-zoo-server = { path = "../agentzoo/zoo-server", default-features = false }
+zoo-bootstrap = { path = "../agentzoo/zoo-bootstrap", default-features = false }
 zoo-plugin-assistant = { path = "zoo-plugin-assistant" }

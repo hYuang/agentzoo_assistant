@@ -10,5 +10,5 @@ fn builtin(_base: &PluginCtx) -> Vec<Arc<dyn Plugin>> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    zoo_server::app::run(builtin).await
+    zoo_bootstrap::app::run(builtin).await
 }
