@@ -19,10 +19,10 @@ base64 = "0.22"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 
-# Framework crates are consumed from the private git repository at a pinned rev.
-zoo-shared = { git = "ssh://git@github.com/hYuang/agentzoo.git", tag = "v1.2.0" }
-zoo-agent = { git = "ssh://git@github.com/hYuang/agentzoo.git", tag = "v1.2.0" }
-zoo-server = { git = "ssh://git@github.com/hYuang/agentzoo.git", tag = "v1.2.0", default-features = false }
-zoo-store = { git = "ssh://git@github.com/hYuang/agentzoo.git", tag = "v1.2.0" }
-zoo-bootstrap = { git = "ssh://git@github.com/hYuang/agentzoo.git", tag = "v1.2.0", default-features = false }
+# Framework crates are consumed from the git repository at a pinned tag.
+zoo-shared = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.0" }
+zoo-agent = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.0" }
+zoo-server = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.0", default-features = false }
+zoo-store = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.0" }
+zoo-bootstrap = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.0", default-features = false }
 
