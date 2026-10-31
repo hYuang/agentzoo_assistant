@@ -78,4 +78,8 @@ This repository contains only assistant application code. It does not vendor or 
 
 One practical requirement for open source: build users need read access to the framework repository. If this app is public while `agentzoo` remains private, external users cannot install the dependencies. Either make the framework repository public or publish the framework crates/package to a registry before publishing this app.
 
-If the app repository is published, also add an explicit license and review `zooagent.json` / environment files for secrets. The current tree does not commit model API keys.
+Before publishing, review `zooagent.json` / environment files for secrets. The current tree does not commit model API keys.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
