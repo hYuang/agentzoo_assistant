@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build"
   },
   "dependencies": {
+    "@agentzoo/web-ui": "file:../../agentzoo/zoo-web-ui",
     "katex": "^0.18.9",
     "lucide-react": "^1.48.0",
     "react": "^18.3.1",

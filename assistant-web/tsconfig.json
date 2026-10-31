@@ -15,6 +15,7 @@
     "baseUrl": ".",
     "paths": {
       "@agentzoo/web-ui": ["../../agentzoo/zoo-web-ui/src/index.ts"],
+      "@agentzoo/web-ui/*": ["../../agentzoo/zoo-web-ui/src/*"],
       "@agentzoo/web-ui/global.css": ["../../agentzoo/zoo-web-ui/src/global.css"]
     }
   },

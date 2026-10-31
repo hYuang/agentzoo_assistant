@@ -10,7 +10,8 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: '@agentzoo/web-ui/global.css', replacement: path.join(webUi, 'global.css') },
-      { find: '@agentzoo/web-ui', replacement: path.join(webUi, 'index.ts') },
+      { find: /^@agentzoo\/web-ui$/, replacement: path.join(webUi, 'index.ts') },
+      { find: '@agentzoo/web-ui', replacement: webUi },
     ],
   },
   server: {
