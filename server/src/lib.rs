@@ -7,19 +7,18 @@
 
 use std::sync::{Arc, OnceLock};
 
-use async_trait::async_trait;
-use serde::Deserialize;
-use serde_json::{json, Value};
-use zoo_agent::tool::{Tool, ToolCtx, ToolError};
 use crate::sdk::{
-    ArtifactSpec, ChatTaskSpec, GateSpec, Plugin, PluginEntry, PluginManifest,
-    PluginUiPage, RoleKind, RoleSpec, StageSpec, WorkflowSpec,
-    PLUGIN_API_VERSION,
+    ArtifactSpec, ChatTaskSpec, GateSpec, Plugin, PluginEntry, PluginManifest, RoleKind, RoleSpec,
+    StageSpec, WorkflowSpec, PLUGIN_API_VERSION,
 };
+use async_trait::async_trait;
 use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use serde::Deserialize;
+use serde_json::{json, Value};
 use zoo_agent::agent::AgentContext;
+use zoo_agent::tool::{Tool, ToolCtx, ToolError};
 use zoo_bootstrap::{AgentTool, AppExtension};
 use zoo_server::ServerState;
 use zoo_shared::api::{ApiResult, PluginsResponse};
@@ -30,7 +29,6 @@ pub mod catalog;
 pub mod runs;
 pub mod runs_api;
 pub mod sdk;
-pub mod ui;
 
 pub struct AssistantPlugin;
 
@@ -205,22 +203,6 @@ impl Plugin for AssistantPlugin {
         }]
     }
 
-    fn ui_pages(&self) -> Vec<PluginUiPage> {
-        vec![PluginUiPage {
-            id: "assistant".into(),
-            title: "My Learning Assistant".into(),
-            page: "index.html".into(),
-            slot: "plugin.dashboard".into(),
-        }]
-    }
-
-    fn ui_asset(&self, path: &str) -> Option<&'static [u8]> {
-        match path {
-            "" | "index.html" => Some(include_bytes!("../ui/index.html")),
-            _ => None,
-        }
-    }
-
     fn chat_tasks(&self) -> Vec<ChatTaskSpec> {
         vec![
             ChatTaskSpec {
@@ -316,7 +298,9 @@ fn stage(
         outputs: outputs.into_iter().map(str::to_string).collect(),
         gate: None,
         foreach: None,
-        prompt: Some(format!("{TUTOR_PROMPT}\n\n## 本阶段任务\n{specific_prompt}")),
+        prompt: Some(format!(
+            "{TUTOR_PROMPT}\n\n## 本阶段任务\n{specific_prompt}"
+        )),
     }
 }
 
@@ -465,10 +449,7 @@ impl Tool for StartPracticeTool {
 }
 
 pub fn extension() -> AppExtension {
-    AppExtension {
-        routes,
-        tools,
-    }
+    AppExtension { routes, tools }
 }
 
 async fn list_plugins(State(state): State<Arc<ServerState>>) -> Json<ApiResult<PluginsResponse>> {
@@ -478,7 +459,6 @@ async fn list_plugins(State(state): State<Arc<ServerState>>) -> Json<ApiResult<P
 fn routes(state: Arc<ServerState>) -> Router {
     Router::new()
         .route("/apps", get(list_plugins))
-        .route("/apps/{name}/ui/{*path}", get(crate::ui::ui_asset))
         .route(
             "/projects/{pid}/apps/{plugin}/runs",
             get(crate::runs_api::list).post(crate::runs_api::create),

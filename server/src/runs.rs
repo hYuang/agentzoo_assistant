@@ -17,25 +17,26 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::sdk::{
+    is_plugin_id, ArtifactStatus, Plugin, PluginRun, RoleKind, RunArtifact, RunInit, RunStatus,
+    StageSpec, WorkflowSpec,
+};
 use axum::http::HeaderMap;
 use axum::response::Response;
 use base64::Engine;
 use uuid::Uuid;
-use crate::sdk::{
-    is_plugin_id, ArtifactStatus, Plugin, PluginRun, RoleKind, RunArtifact,
-    RunInit, RunStatus, StageSpec, WorkflowSpec,
-};
 use zoo_shared::api::{
-    ApiRequest, CreatePluginDirectoryRequest, CreatePluginDirectoryResponse, CreatePluginRunRequest,
-    CreateSessionRequest, ModelSelection, PluginArtifactContent, PluginArtifactInfo, PluginRunInfo,
-    PluginRunsResponse, RejectPluginRunRequest, SendMessageRequest, StartPluginRunRequest,
-    UploadFileRequest, UploadFileResponse, WritePluginArtifactRequest,
+    ApiRequest, CreatePluginDirectoryRequest, CreatePluginDirectoryResponse,
+    CreatePluginRunRequest, CreateSessionRequest, ModelSelection, PluginArtifactContent,
+    PluginArtifactInfo, PluginRunInfo, PluginRunsResponse, RejectPluginRunRequest,
+    SendMessageRequest, StartPluginRunRequest, UploadFileRequest, UploadFileResponse,
+    WritePluginArtifactRequest,
 };
 use zoo_shared::message::ProjectId;
 
-use zoo_server::ApiError;
 use zoo_server::service::packs::safe_join;
 use zoo_server::service::{files, sessions, ServerState};
+use zoo_server::ApiError;
 
 /// The runtime state directory for a project/plugin/run.
 pub fn run_dir(project_root: &Path, plugin_id: &str, run_id: &str) -> PathBuf {
@@ -97,7 +98,10 @@ pub async fn create_run(
         body.input.clone(),
         &plugin.artifact_types(),
     );
-    run.workflow_id = plugin.workflows().first().map(|workflow| workflow.id.clone());
+    run.workflow_id = plugin
+        .workflows()
+        .first()
+        .map(|workflow| workflow.id.clone());
     if run.session_id.is_none() {
         let created = sessions::create_session(
             state,
@@ -111,9 +115,7 @@ pub async fn create_run(
     }
     let dir = run_dir(&project.path, plugin_id, &run.id);
     let artifacts = artifact_dir(&project.path, plugin_id);
-    tokio::fs::create_dir_all(&dir)
-        .await
-        .map_err(internal)?;
+    tokio::fs::create_dir_all(&dir).await.map_err(internal)?;
     tokio::fs::create_dir_all(&artifacts)
         .await
         .map_err(internal)?;
@@ -603,7 +605,9 @@ async fn run_one_stage(
     };
     run.stage = Some(stage.id.clone());
     run.updated_at = now();
-    save_run(dir, &run).await.map_err(|error| error.to_string())?;
+    save_run(dir, &run)
+        .await
+        .map_err(|error| error.to_string())?;
 
     let session_id = run
         .session_id
@@ -641,7 +645,9 @@ async fn run_one_stage(
         run.status = RunStatus::WaitingGate;
         run.stage = Some(stage.id.clone());
         run.updated_at = now();
-        save_run(dir, &run).await.map_err(|error| error.to_string())?;
+        save_run(dir, &run)
+            .await
+            .map_err(|error| error.to_string())?;
         return Ok(());
     }
 
@@ -652,7 +658,9 @@ async fn run_one_stage(
     run.stage = None;
     run.review_notes = None;
     run.updated_at = now();
-    save_run(dir, &run).await.map_err(|error| error.to_string())?;
+    save_run(dir, &run)
+        .await
+        .map_err(|error| error.to_string())?;
     Ok(())
 }
 fn next_stage<'a>(workflow: &'a WorkflowSpec, completed: &[String]) -> Option<&'a StageSpec> {
@@ -725,12 +733,7 @@ fn stage_prompt(
         .outputs
         .iter()
         .filter_map(|id| run.artifact(id))
-        .map(|artifact| {
-            format!(
-                "- {} -> {}/{}",
-                artifact.id, artifact_root, artifact.path
-            )
-        })
+        .map(|artifact| format!("- {} -> {}/{}", artifact.id, artifact_root, artifact.path))
         .collect::<Vec<_>>()
         .join("\n");
     format!(
@@ -787,10 +790,7 @@ fn select_workflow(plugin: &dyn Plugin, run: &PluginRun) -> Result<WorkflowSpec,
         .cloned()
         .or_else(|| workflows.first().cloned());
     workflow.ok_or_else(|| {
-        ApiError::InvalidRequest(format!(
-            "plugin {} has no workflow",
-            plugin.manifest().id
-        ))
+        ApiError::InvalidRequest(format!("plugin {} has no workflow", plugin.manifest().id))
     })
 }
 
@@ -887,8 +887,8 @@ async fn refresh_artifacts(run: &mut PluginRun, dir: &Path) {
 }
 
 async fn save_run(dir: &Path, run: &PluginRun) -> Result<(), ApiError> {
-    let text = serde_json::to_string_pretty(run)
-        .map_err(|error| ApiError::Internal(error.to_string()))?;
+    let text =
+        serde_json::to_string_pretty(run).map_err(|error| ApiError::Internal(error.to_string()))?;
     tokio::fs::write(dir.join("run.json"), text)
         .await
         .map_err(internal)
@@ -986,9 +986,15 @@ mod tests {
     #[test]
     fn sanitizes_upload_directories() {
         let path = sanitize_relative_dir("manuscripts/first draft").unwrap();
-        assert_eq!(path.to_string_lossy().replace('\\', "/"), "manuscripts/first_draft");
+        assert_eq!(
+            path.to_string_lossy().replace('\\', "/"),
+            "manuscripts/first_draft"
+        );
         let chinese = sanitize_relative_dir("中文资料/原稿").unwrap();
-        assert_eq!(chinese.to_string_lossy().replace('\\', "/"), "中文资料/原稿");
+        assert_eq!(
+            chinese.to_string_lossy().replace('\\', "/"),
+            "中文资料/原稿"
+        );
         assert!(sanitize_relative_dir("../outside").is_err());
         assert!(sanitize_relative_dir("a/../../b").is_err());
         assert!(sanitize_relative_dir("../../").is_err());
@@ -1040,7 +1046,14 @@ mod tests {
             schema: None,
             version: 1,
         }];
-        let run = PluginRun::new("run", "plugin", "project", None, serde_json::json!({}), &specs);
+        let run = PluginRun::new(
+            "run",
+            "plugin",
+            "project",
+            None,
+            serde_json::json!({}),
+            &specs,
+        );
         let stage = stage("a", &[], &["artifact"]);
         assert!(check_outputs(&run, &stage, &dir).is_err());
         std::fs::write(dir.join("artifact.json"), "{}").unwrap();

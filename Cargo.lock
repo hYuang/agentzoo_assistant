@@ -3388,24 +3388,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "zoo-ai"
-version = "1.1.0"
-source = "git+ssh://git@github.com/hYuang/agentzoo.git?rev=c66ffa6eaaaf7d1f10cea024e89d0e15bf7648ee#c66ffa6eaaaf7d1f10cea024e89d0e15bf7648ee"
-dependencies = [
- "async-trait",
- "futures",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tracing",
- "zoo-shared",
-]
-
-[[package]]
-name = "zoo-assistant"
+name = "zoo-agent-server"
 version = "1.1.0"
 dependencies = [
  "async-trait",
@@ -3422,6 +3405,23 @@ dependencies = [
  "zoo-server",
  "zoo-shared",
  "zoo-store",
+]
+
+[[package]]
+name = "zoo-ai"
+version = "1.1.0"
+source = "git+ssh://git@github.com/hYuang/agentzoo.git?rev=c66ffa6eaaaf7d1f10cea024e89d0e15bf7648ee#c66ffa6eaaaf7d1f10cea024e89d0e15bf7648ee"
+dependencies = [
+ "async-trait",
+ "futures",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "zoo-shared",
 ]
 
 [[package]]
@@ -3507,16 +3507,6 @@ dependencies = [
  "windows-sys 0.59.0",
  "zoo-ai",
  "zoo-shared",
- "zvec-rust",
-]
-
-[[package]]
-name = "zooagent"
-version = "1.1.0"
-dependencies = [
- "tokio",
- "zoo-assistant",
- "zoo-bootstrap",
 ]
 
 [[package]]
@@ -3560,18 +3550,3 @@ dependencies = [
  "syn 3.0.9",
  "winnow 1.0.4",
 ]
-
-[[package]]
-name = "zvec-rust"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "572509c7f611c4d8c278919273c586028ebb1d718ed2a64cf0f9407026be14e6"
-dependencies = [
- "zvec-rust-sys",
-]
-
-[[package]]
-name = "zvec-rust-sys"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5a02fdececf3b1472013909d7aad6045b1b39b9708a12e2662e54dcac3aeacd"

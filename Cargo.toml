@@ -1,8 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "zooagent",
-    "assistant",
+    "server",
 ]
 
 [workspace.package]
@@ -19,14 +18,11 @@ axum = { version = "0.8", features = ["json"] }
 base64 = "0.22"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
-thiserror = "2"
 
-# Local development uses the sibling framework checkout at ../agentzoo.
-# For CI/publishing, replace these with git dependencies pinned to a tag, e.g.
-# zoo-server = { git = "git@github.com:hYuang/agentzoo.git", tag = "v1.1.0", default-features = false }
+# Framework crates are consumed from the private git repository at a pinned rev.
 zoo-shared = { git = "ssh://git@github.com/hYuang/agentzoo.git", rev = "c66ffa6eaaaf7d1f10cea024e89d0e15bf7648ee" }
 zoo-agent = { git = "ssh://git@github.com/hYuang/agentzoo.git", rev = "c66ffa6eaaaf7d1f10cea024e89d0e15bf7648ee" }
 zoo-server = { git = "ssh://git@github.com/hYuang/agentzoo.git", rev = "c66ffa6eaaaf7d1f10cea024e89d0e15bf7648ee", default-features = false }
 zoo-store = { git = "ssh://git@github.com/hYuang/agentzoo.git", rev = "c66ffa6eaaaf7d1f10cea024e89d0e15bf7648ee" }
 zoo-bootstrap = { git = "ssh://git@github.com/hYuang/agentzoo.git", rev = "c66ffa6eaaaf7d1f10cea024e89d0e15bf7648ee", default-features = false }
-zoo-assistant = { path = "assistant" }
+

@@ -6,9 +6,10 @@ import { HomeTopbar } from '@agentzoo/web-ui/pages/home/HomeTopbar'
 import { useChat } from '@agentzoo/web-ui/store/chatContext'
 import { useI18n } from '@agentzoo/web-ui/i18n'
 import type { PluginInfo } from '@agentzoo/web-ui/types'
+import { AssistantDashboard } from './assistant/AssistantDashboard'
 
 export function AssistantHome() {
-  const { createProject, projectId } = useChat()
+  const { createProject, projectId, setActiveProject } = useChat()
   const { t } = useI18n()
   const [plugin, setPlugin] = useState<PluginInfo | null>(null)
   const [showNewProject, setShowNewProject] = useState(false)
@@ -22,10 +23,6 @@ export function AssistantHome() {
       .catch(() => setPlugin(null))
   }, [])
 
-  const page =
-    plugin?.ui?.find((item) => item.slot === 'plugin.dashboard')?.page ??
-    'index.html'
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <HomeTopbar
@@ -33,10 +30,10 @@ export function AssistantHome() {
         onMore={() => setShowMore(true)}
       />
       {projectId && plugin ? (
-        <iframe
-          title={plugin.name}
-          src={`/apps/assistant/ui/${page}?projectId=${encodeURIComponent(projectId)}`}
-          style={{ border: 0, width: '100%', height: '100%' }}
+        <AssistantDashboard
+          plugin={plugin}
+          projectId={projectId}
+          onProjectChange={setActiveProject}
         />
       ) : (
         <div style={{ margin: '12vh auto', color: 'var(--fg-muted)' }}>

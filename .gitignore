@@ -24,4 +24,4 @@ rustc-ice-*.txt
 #.idea/
 /bin
 node_modules/
-host-web/dist/
+web/dist/
