@@ -1,11 +1,9 @@
-# Builds the product `zooagent` binary from the framework + selected plugins.
+# Builds the product `zooagent` binary (framework + learning assistant plugin).
 #
-#   make                 -> assistant product (debug) -> bin/zooagent[.exe]
+#   make                 -> debug -> bin/zooagent[.exe]
 #   make build           -> same
-#   make release         -> assistant product (release)
-#   make assistant       -> assistant product
-#   make audiobook|observability|paper
-#   make run-assistant   -> build and run the assistant product (web)
+#   make release         -> release
+#   make run             -> run in web mode
 #   make test            -> plugin workspace tests
 #   make fmt             -> cargo fmt
 #   make clean           -> remove bin/
@@ -17,9 +15,9 @@
 CARGO ?= cargo
 FRAMEWORK := ../agentzoo
 BIN_DIR := bin
-FLAVOR ?= assistant
 
 ZVEC ?= 1
+ZVEC_FEATURE := $(if $(filter 1,$(ZVEC)),--features zvec,)
 
 ifeq ($(OS),Windows_NT)
   EXE := .exe
@@ -29,7 +27,6 @@ else
   EXE :=
   FRONTEND_CMD := cd $(FRAMEWORK)/zoo-web && npm install && npm run build
   ZVEC_OS := $(shell uname -s)
-  ZVEC_ARCH := $(shell uname -m)
   ifeq ($(ZVEC_OS),Darwin)
     ZVEC_DYLIB := libzvec_c_api.dylib
   else
@@ -37,13 +34,7 @@ else
   endif
 endif
 
-ifeq ($(ZVEC),1)
-  PRODUCT_FEATURES := $(FLAVOR),zvec
-else
-  PRODUCT_FEATURES := $(FLAVOR)
-endif
-
-.PHONY: all build release test run-assistant run-audiobook run-observability run-paper frontend fmt clean distclean stage-zvec assistant audiobook observability paper
+.PHONY: all build release test run frontend fmt clean distclean stage-zvec
 
 all: build
 
@@ -51,7 +42,7 @@ frontend:
 	$(FRONTEND_CMD)
 
 build: frontend
-	$(CARGO) build --no-default-features --features $(PRODUCT_FEATURES)
+	$(CARGO) build --no-default-features $(ZVEC_FEATURE)
 	mkdir -p $(BIN_DIR)
 	cp target/debug/zooagent$(EXE) $(BIN_DIR)/zooagent$(EXE)
 ifeq ($(ZVEC),1)
@@ -59,7 +50,7 @@ ifeq ($(ZVEC),1)
 endif
 
 release: frontend
-	$(CARGO) build --release --no-default-features --features $(PRODUCT_FEATURES)
+	$(CARGO) build --release --no-default-features $(ZVEC_FEATURE)
 	mkdir -p $(BIN_DIR)
 	cp target/release/zooagent$(EXE) $(BIN_DIR)/zooagent$(EXE)
 ifeq ($(ZVEC),1)
@@ -79,25 +70,10 @@ ifeq ($(ZVEC),1)
 	cp $(BIN_DIR)/$(ZVEC_DYLIB) target/debug/deps/
 	rm -rf target/debug/deps/data && cp -r $(BIN_DIR)/data target/debug/deps/data
 endif
-	$(CARGO) test --no-default-features --features $(PRODUCT_FEATURES)
+	$(CARGO) test --no-default-features $(ZVEC_FEATURE)
 
-assistant audiobook observability paper:
-	$(MAKE) build FLAVOR=$@
-
-run-assistant:
-	$(MAKE) build FLAVOR=assistant
-	./$(BIN_DIR)/zooagent$(EXE) web
-
-run-audiobook:
-	$(MAKE) build FLAVOR=audiobook
-	./$(BIN_DIR)/zooagent$(EXE) web
-
-run-observability:
-	$(MAKE) build FLAVOR=observability
-	./$(BIN_DIR)/zooagent$(EXE) web
-
-run-paper:
-	$(MAKE) build FLAVOR=paper
+run:
+	$(MAKE) build
 	./$(BIN_DIR)/zooagent$(EXE) web
 
 fmt:

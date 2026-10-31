@@ -3703,39 +3703,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "zoo-plugin-audiobook"
-version = "1.1.0"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
- "serde_yaml",
- "zoo-plugins",
-]
-
-[[package]]
-name = "zoo-plugin-observability"
-version = "1.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "serde_json",
- "tokio",
- "zoo-ai",
- "zoo-plugins",
- "zoo-shared",
- "zoo-store",
-]
-
-[[package]]
-name = "zoo-plugin-paper"
-version = "1.1.0"
-dependencies = [
- "serde_json",
- "zoo-plugins",
-]
-
-[[package]]
 name = "zoo-plugins"
 version = "1.1.0"
 dependencies = [
@@ -3839,11 +3806,7 @@ name = "zooagent"
 version = "1.1.0"
 dependencies = [
  "tokio",
- "zoo-agent",
  "zoo-plugin-assistant",
- "zoo-plugin-audiobook",
- "zoo-plugin-observability",
- "zoo-plugin-paper",
  "zoo-plugins",
  "zoo-server",
 ]
