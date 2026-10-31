@@ -3403,25 +3403,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "zoo-bootstrap"
-version = "1.1.0"
-dependencies = [
- "axum",
- "chrono",
- "open",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "windows-sys 0.59.0",
- "zoo-agent",
- "zoo-ai",
- "zoo-server",
- "zoo-shared",
- "zoo-store",
-]
-
-[[package]]
-name = "zoo-plugin-assistant"
+name = "zoo-assistant"
 version = "1.1.0"
 dependencies = [
  "async-trait",
@@ -3437,6 +3419,24 @@ dependencies = [
  "uuid",
  "zoo-agent",
  "zoo-bootstrap",
+ "zoo-server",
+ "zoo-shared",
+ "zoo-store",
+]
+
+[[package]]
+name = "zoo-bootstrap"
+version = "1.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "open",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "windows-sys 0.59.0",
+ "zoo-agent",
+ "zoo-ai",
  "zoo-server",
  "zoo-shared",
  "zoo-store",
@@ -3511,8 +3511,8 @@ name = "zooagent"
 version = "1.1.0"
 dependencies = [
  "tokio",
+ "zoo-assistant",
  "zoo-bootstrap",
- "zoo-plugin-assistant",
 ]
 
 [[package]]

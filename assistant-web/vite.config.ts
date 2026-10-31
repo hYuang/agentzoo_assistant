@@ -26,7 +26,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../zoo-plugin-assistant/ui',
+    outDir: '../assistant/ui',
     emptyOutDir: true,
     assetsInlineLimit: 100000000,
     cssCodeSplit: false,

@@ -1,5 +1,5 @@
 [package]
-name = "zoo-plugin-assistant"
+name = "zoo-assistant"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
