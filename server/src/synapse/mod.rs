@@ -764,11 +764,22 @@ fn question_payload(question: &QuizQuestion, index: usize, knowledge_point_id: i
 fn answer_index(answer: &Value, options: &[String]) -> Option<usize> {
     match answer {
         Value::Number(number) => number.as_u64().map(|value| value as usize),
-        Value::String(text) => text
-            .trim()
-            .parse::<usize>()
-            .ok()
-            .or_else(|| options.iter().position(|option| option == text)),
+        Value::String(text) => {
+            let text = text.trim();
+            if let Ok(index) = text.parse::<usize>() {
+                return Some(index);
+            }
+            if let Some(index) = options.iter().position(|option| option == text) {
+                return Some(index);
+            }
+            let mut chars = text.chars();
+            match (chars.next(), chars.next()) {
+                (Some(letter), None) if letter.is_ascii_alphabetic() => {
+                    Some((letter.to_ascii_uppercase() as u8 - b'A') as usize)
+                }
+                _ => None,
+            }
+        }
         _ => None,
     }
 }
