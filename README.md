@@ -1,22 +1,25 @@
 # agentzoo_assistant
 
-A self-contained product app built on the [agentzoo](https://github.com/hYuang/agentzoo) framework.
+Learning assistant built on the [agentzoo](https://github.com/hYuang/agentzoo) framework.
 
 ## Layout
 
 ```
 agentzoo_assistant/
 ├── server/          # app crate + product binary
-│   ├── src/         # workflow/run engine, routes, app extension
 │   ├── prompts/     # prompt assets
-│   └── tests/
-├── web/             # Vite/React frontend (host + assistant dashboard)
+│   └── src/         # workflow/run engine, handlers, services, routes
+├── web/             # Vite/React frontend
 ├── Cargo.toml       # workspace: server
 ├── Cargo.lock
 └── Makefile
 ```
 
-The framework is consumed as a normal dependency; there is no sibling checkout or path dependency:
+The assistant app owns its workflow engine, HTTP routes, tools, frontend, and business state. It implements the framework's normal `zoo_bootstrap::App` trait; it does not use plugins.
+
+## Framework dependency
+
+The framework is consumed as a normal dependency. There is no sibling checkout or path dependency:
 
 ```toml
 zoo-server = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0", default-features = false }
@@ -32,20 +35,47 @@ zoo-server = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0", d
 
 To upgrade, change the tag in `Cargo.toml` and `web/package.json`, then run `cargo update` and `npm install`.
 
+## App integration
+
+The app is composed like a normal library:
+
+```rust
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let app = zoo_agent_server::app();
+    zoo_bootstrap::app::run(app).await
+}
+```
+
+`AssistantApp` implements `zoo_bootstrap::App`. Its `routes()` method returns a normal axum `Router`, so handlers, services, extractors, middleware, and routes are written exactly like a standalone axum application.
+
 ## Build
 
 ```bash
-# Debug binary + web assets
+# Build the frontend, then the server binary + bin/zooagent[.exe]
 make build
 
-# Run the web app
+# Run
 make run          # or: bin/zooagent web
 
 # Tests
 make test
 
-# Release binary
+# Release
 make release
 ```
 
-The frontend is embedded into the server binary at build time, so build `web/` before compiling the server.
+The frontend is embedded into the server binary at build time, so `web/` must be built before the Rust server.
+
+## Open source and framework code
+
+This repository contains only assistant application code. It does not vendor or copy the `agentzoo` framework source:
+
+- Rust dependencies are resolved from the framework git repository.
+- `Cargo.lock` contains only dependency URLs, tags, and commit hashes.
+- `web/package-lock.json` contains the npm dependency URL and commit.
+- `web/dist/`, `bin/`, and `target/` are build outputs and are gitignored. The generated frontend bundle and binary are not committed.
+
+One practical requirement for open source: build users need read access to the framework repository. If this app is public while `agentzoo` remains private, external users cannot install the dependencies. Either make the framework repository public or publish the framework crates/package to a registry before publishing this app.
+
+If the app repository is published, also add an explicit license and review `zooagent.json` / environment files for secrets. The current tree does not commit model API keys.
