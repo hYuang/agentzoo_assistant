@@ -155,10 +155,7 @@ impl PluginRun {
                 .map(|spec| RunArtifact {
                     id: spec.id.clone(),
                     title: spec.title.clone(),
-                    path: spec
-                        .path
-                        .clone()
-                        .unwrap_or_else(|| spec.id.clone()),
+                    path: spec.path.clone().unwrap_or_else(|| spec.id.clone()),
                     status: ArtifactStatus::Empty,
                     size: 0,
                     updated_at: None,
@@ -212,7 +209,10 @@ mod tests {
         ];
         let mut run = PluginRun::new("run-1", "audiobook", "p-1", None, json!({}), &specs);
         assert_eq!(run.artifacts.len(), 2);
-        assert_eq!(run.artifact("project").unwrap().status, ArtifactStatus::Empty);
+        assert_eq!(
+            run.artifact("project").unwrap().status,
+            ArtifactStatus::Empty
+        );
         assert!(run.artifact("audio").unwrap().is_dir());
         run.touch_artifact("project", 12);
         let project = run.artifact("project").unwrap();
