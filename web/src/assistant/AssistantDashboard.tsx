@@ -9,6 +9,7 @@ import {
   ListChecks,
   Network,
   RotateCcw,
+  Share2,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -22,6 +23,8 @@ import type { PluginDashboardProps } from '../contract'
 import type { PluginRunInfo } from '@agentzoo/web-ui'
 import { Badge, stageState } from './modules/shared'
 import { moduleById, moduleForStage, workbenchModules } from './modules/registry'
+import { StudioSessionProvider } from './synapse/session'
+import { StudioAccountPanel } from './synapse/account'
 import { useAssistantI18n } from './i18n'
 import styles from './assistant.module.css'
 
@@ -36,6 +39,7 @@ const STAGE_ICONS: Record<string, LucideIcon> = {
 const WORKBENCH_ICONS: Record<string, LucideIcon> = {
   overview: LayoutDashboard,
   knowledge_base: Library,
+  synapse: Share2,
   materials: FolderOpen,
   knowledge: Network,
   practice: ListChecks,
@@ -53,6 +57,7 @@ const MODULE_KEYS: Record<
   string,
   | 'moduleOverview'
   | 'moduleKnowledgeBase'
+  | 'moduleSynapse'
   | 'moduleMaterials'
   | 'moduleKnowledge'
   | 'modulePractice'
@@ -61,6 +66,7 @@ const MODULE_KEYS: Record<
 > = {
   overview: 'moduleOverview',
   knowledge_base: 'moduleKnowledgeBase',
+  synapse: 'moduleSynapse',
   materials: 'moduleMaterials',
   knowledge: 'moduleKnowledge',
   practice: 'modulePractice',
@@ -234,216 +240,220 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
   }
 
   return (
-    <div className={styles.dashboard}>
-      <main className={styles.workspaceShell}>
-        <aside className={styles.railPanel}>
-          <div className={styles.railSection}>
-            <button
-              type="button"
-              className={styles.railSectionToggle}
-              aria-expanded={processOpen}
-              aria-controls="assistant-process-modules"
-              onClick={() => setProcessOpen((open) => !open)}
-            >
-              <span>{t('processModules')}</span>
-              <ChevronDown
-                size={14}
-                strokeWidth={1.8}
-                aria-hidden
-                className={`${styles.railChevron} ${
-                  processOpen ? styles.railChevronOpen : ''
-                }`}
-              />
-            </button>
-            <div
-              id="assistant-process-modules"
-              className={`${styles.stageNav} ${processOpen ? '' : styles.stageNavCollapsed}`}
-              hidden={!processOpen}
-            >
+    <StudioSessionProvider projectId={pid} pluginId={pluginId} runId={run.id}>
+      <div className={styles.dashboard}>
+        <main className={styles.workspaceShell}>
+          <aside className={styles.railPanel}>
+            <div className={styles.railSection}>
+              <button
+                type="button"
+                className={styles.railSectionToggle}
+                aria-expanded={processOpen}
+                aria-controls="assistant-process-modules"
+                onClick={() => setProcessOpen((open) => !open)}
+              >
+                <span>{t('processModules')}</span>
+                <ChevronDown
+                  size={14}
+                  strokeWidth={1.8}
+                  aria-hidden
+                  className={`${styles.railChevron} ${
+                    processOpen ? styles.railChevronOpen : ''
+                  }`}
+                />
+              </button>
+              <div
+                id="assistant-process-modules"
+                className={`${styles.stageNav} ${processOpen ? '' : styles.stageNavCollapsed}`}
+                hidden={!processOpen}
+              >
+                {(workflow?.stages ?? []).map((stage) => {
+                  const state = stageState(stage, run)
+                  const stageModule = moduleForStage(stage.id)
+                  const active = module.id === stageModule.id
+                  return (
+                    <button
+                      key={stage.id}
+                      type="button"
+                      className={`${styles.stageNavItem} ${
+                        state === 'done'
+                          ? styles.stageNavDone
+                          : state === 'current' || state === 'waiting'
+                            ? styles.stageNavCurrent
+                            : ''
+                      } ${active ? styles.stageNavCurrent : ''}`}
+                      onClick={() => openModule(stageModule.id)}
+                    >
+                      {(() => {
+                        const Icon = STAGE_ICONS[stage.id] ?? FileText
+                        return (
+                          <span className={styles.menuIcon}>
+                            <Icon size={14} strokeWidth={1.8} aria-hidden />
+                          </span>
+                        )
+                      })()}
+                      <span className={styles.stageNavName}>{stageLabel(stage.id)}</span>
+                      <span className={styles.stageNavMeta}>
+                        {state === 'done'
+                          ? t('completed')
+                          : state === 'waiting'
+                            ? t('waiting')
+                            : state === 'current'
+                              ? t('running')
+                              : t('pending')}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className={`${styles.railSection} ${styles.workbenchSection}`}>
+              <div className={styles.railSectionTitle}>{t('workbench')}</div>
+              {workbenchModules().map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`${styles.utilityItem} ${module.id === item.id ? styles.utilityActive : ''}`}
+                  onClick={() => openModule(item.id)}
+                >
+                  {(() => {
+                    const Icon = WORKBENCH_ICONS[item.id] ?? LayoutDashboard
+                    return (
+                      <span className={styles.menuIcon}>
+                        <Icon size={14} strokeWidth={1.8} aria-hidden />
+                      </span>
+                    )
+                  })()}
+                  {MODULE_KEYS[item.id] ? t(MODULE_KEYS[item.id]) : item.title}
+                </button>
+              ))}
+            </div>
+
+            <StudioAccountPanel />
+          </aside>
+
+          <section className={styles.workMain}>
+            {error && <div className={styles.error}>{error}</div>}
+            {run.error && <div className={styles.error}>{run.error}</div>}
+
+            <div className={styles.productionHead}>
+              <div>
+                <div className={styles.titleRow}>
+                  <h1>{t('brand')}</h1>
+                </div>
+                <div className={styles.sub}>
+                  {done}/{total} {t('flowStages')} · {total ? Math.round((done / total) * 100) : 0}% ·{' '}
+                  {new Date(run.updated_at).toLocaleString()}
+                </div>
+              </div>
+              <div className={styles.actions}>
+                <button
+                  type="button"
+                  className={styles.btn}
+                  disabled={chatBusy}
+                  onClick={() => void sendChat(t('newRoundPrompt'))}
+                >
+                  {t('newRound')}
+                </button>
+                <Badge status={run.status} />
+                {currentStage && (
+                  <button
+                    type="button"
+                    className={styles.primary}
+                    onClick={() => openModule(moduleForStage(currentStage.id).id)}
+                  >
+                    {run.status === 'waiting_gate' ? t('review') : t('continue')}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.stagebar}>
               {(workflow?.stages ?? []).map((stage) => {
                 const state = stageState(stage, run)
-                const stageModule = moduleForStage(stage.id)
-                const active = module.id === stageModule.id
                 return (
-                  <button
+                  <span
                     key={stage.id}
-                    type="button"
-                    className={`${styles.stageNavItem} ${
+                    className={`${styles.stagechip} ${
                       state === 'done'
-                        ? styles.stageNavDone
+                        ? styles.stagechipDone
                         : state === 'current' || state === 'waiting'
-                          ? styles.stageNavCurrent
+                          ? styles.stagechipCurrent
                           : ''
-                    } ${active ? styles.stageNavCurrent : ''}`}
-                    onClick={() => openModule(stageModule.id)}
+                    }`}
                   >
-                    {(() => {
-                      const Icon = STAGE_ICONS[stage.id] ?? FileText
-                      return (
-                        <span className={styles.menuIcon}>
-                          <Icon size={14} strokeWidth={1.8} aria-hidden />
-                        </span>
-                      )
-                    })()}
-                    <span className={styles.stageNavName}>{stageLabel(stage.id)}</span>
-                    <span className={styles.stageNavMeta}>
-                      {state === 'done'
-                        ? t('completed')
-                        : state === 'waiting'
-                          ? t('waiting')
-                          : state === 'current'
-                            ? t('running')
-                            : t('pending')}
-                    </span>
-                  </button>
+                    <span className={styles.dot} />
+                    {stageLabel(stage.id)}
+                  </span>
                 )
               })}
             </div>
-          </div>
 
-          <div className={`${styles.railSection} ${styles.workbenchSection}`}>
-            <div className={styles.railSectionTitle}>{t('workbench')}</div>
-            {workbenchModules().map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`${styles.utilityItem} ${module.id === item.id ? styles.utilityActive : ''}`}
-                onClick={() => openModule(item.id)}
-              >
-                {(() => {
-                  const Icon = WORKBENCH_ICONS[item.id] ?? LayoutDashboard
-                  return (
-                    <span className={styles.menuIcon}>
-                      <Icon size={14} strokeWidth={1.8} aria-hidden />
-                    </span>
-                  )
-                })()}
-                {MODULE_KEYS[item.id] ? t(MODULE_KEYS[item.id]) : item.title}
-              </button>
-            ))}
-          </div>
-        </aside>
+            <module.component {...props} />
+          </section>
 
-        <section className={styles.workMain}>
-          {error && <div className={styles.error}>{error}</div>}
-          {run.error && <div className={styles.error}>{run.error}</div>}
-
-          <div className={styles.productionHead}>
-            <div>
-              <div className={styles.titleRow}>
-                <h1>{t('brand')}</h1>
+          <aside className={styles.inspector}>
+            <div className={styles.inspectorTitle}>{t('currentStage')}</div>
+            {currentStage ? (
+              <>
+                <div className={styles.inspectorStage}>{stageLabel(currentStage.id)}</div>
+                <div className={styles.inspectorMeta}>
+                  {t('role')}: {roleLabel(currentStage.role)}
+                </div>
+                <div className={styles.inspectorMeta}>
+                  {t('gate')}: {currentStage.gate ? gateLabel(currentStage.gate) : '—'}
+                </div>
+                <div className={styles.inspectorMeta}>
+                  {t('status')}: {statusLabel(run.status)}
+                </div>
+              </>
+            ) : (
+              <div className={styles.inspectorMeta}>
+                {run.status === 'completed' ? t('completed') : t('statusCreated')}
               </div>
-              <div className={styles.sub}>
-                {done}/{total} {t('flowStages')} · {total ? Math.round((done / total) * 100) : 0}% ·{' '}
-                {new Date(run.updated_at).toLocaleString()}
-              </div>
-            </div>
-            <div className={styles.actions}>
-              <button
-                type="button"
-                className={styles.btn}
-                disabled={chatBusy}
-                onClick={() => void sendChat(t('newRoundPrompt'))}
-              >
-                {t('newRound')}
-              </button>
-              <Badge status={run.status} />
-              {currentStage && (
+            )}
+
+            <div className={styles.inspectorActions}>
+              {['created', 'failed', 'cancelled'].includes(run.status) && (
                 <button
                   type="button"
                   className={styles.primary}
-                  onClick={() => openModule(moduleForStage(currentStage.id).id)}
+                  disabled={busy}
+                  onClick={() => void (module.stageId ? runStage(module.stageId) : act('start'))}
                 >
-                  {run.status === 'waiting_gate' ? t('review') : t('continue')}
+                  {t('start')}
+                </button>
+              )}
+              {run.status === 'waiting_gate' && (
+                <button
+                  type="button"
+                  className={styles.primary}
+                  disabled={busy}
+                  onClick={() => void act('approve')}
+                >
+                  {t('approveContinue')}
                 </button>
               )}
             </div>
-          </div>
 
-          <div className={styles.stagebar}>
-            {(workflow?.stages ?? []).map((stage) => {
-              const state = stageState(stage, run)
-              return (
-                <span
-                  key={stage.id}
-                  className={`${styles.stagechip} ${
-                    state === 'done'
-                      ? styles.stagechipDone
-                      : state === 'current' || state === 'waiting'
-                        ? styles.stagechipCurrent
-                        : ''
-                  }`}
+            <div className={styles.inspectorTitle}>{t('artifacts')}</div>
+            <div className={styles.inspectorArtifacts}>
+              {(run.artifacts ?? []).map((artifact) => (
+                <button
+                  key={artifact.id}
+                  type="button"
+                  className={styles.inspectorArtifact}
+                  onClick={() => openModule(artifact.id)}
                 >
-                  <span className={styles.dot} />
-                  {stageLabel(stage.id)}
-                </span>
-              )
-            })}
-          </div>
-
-          <module.component {...props} />
-        </section>
-
-        <aside className={styles.inspector}>
-          <div className={styles.inspectorTitle}>{t('currentStage')}</div>
-          {currentStage ? (
-            <>
-              <div className={styles.inspectorStage}>{stageLabel(currentStage.id)}</div>
-              <div className={styles.inspectorMeta}>
-                {t('role')}: {roleLabel(currentStage.role)}
-              </div>
-              <div className={styles.inspectorMeta}>
-                {t('gate')}: {currentStage.gate ? gateLabel(currentStage.gate) : '—'}
-              </div>
-              <div className={styles.inspectorMeta}>
-                {t('status')}: {statusLabel(run.status)}
-              </div>
-            </>
-          ) : (
-            <div className={styles.inspectorMeta}>
-              {run.status === 'completed' ? t('completed') : t('statusCreated')}
+                  <span>{artifactLabel(artifact.id)}</span>
+                  <span className={styles.mono}>{artifact.status}</span>
+                </button>
+              ))}
             </div>
-          )}
-
-          <div className={styles.inspectorActions}>
-            {['created', 'failed', 'cancelled'].includes(run.status) && (
-              <button
-                type="button"
-                className={styles.primary}
-                disabled={busy}
-                onClick={() => void (module.stageId ? runStage(module.stageId) : act('start'))}
-              >
-                {t('start')}
-              </button>
-            )}
-            {run.status === 'waiting_gate' && (
-              <button
-                type="button"
-                className={styles.primary}
-                disabled={busy}
-                onClick={() => void act('approve')}
-              >
-                {t('approveContinue')}
-              </button>
-            )}
-          </div>
-
-          <div className={styles.inspectorTitle}>{t('artifacts')}</div>
-          <div className={styles.inspectorArtifacts}>
-            {(run.artifacts ?? []).map((artifact) => (
-              <button
-                key={artifact.id}
-                type="button"
-                className={styles.inspectorArtifact}
-                onClick={() => openModule(artifact.id)}
-              >
-                <span>{artifactLabel(artifact.id)}</span>
-                <span className={styles.mono}>{artifact.status}</span>
-              </button>
-            ))}
-          </div>
-        </aside>
-      </main>
-    </div>
+          </aside>
+        </main>
+      </div>
+    </StudioSessionProvider>
   )
 }

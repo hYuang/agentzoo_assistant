@@ -7,6 +7,7 @@ import styles from '../assistant.module.css'
 
 function MarkdownArtifact({
   projectId,
+  plugin,
   runId,
   run,
   artifactId,
@@ -14,7 +15,13 @@ function MarkdownArtifact({
 }: ModuleProps & { artifactId: string; emptyKey: AssistantKey }) {
   const { t, artifactLabel } = useAssistantI18n()
   const artifact = run.artifacts?.find((item) => item.id === artifactId) ?? null
-  const { content, error } = useArtifact(projectId, runId, artifactId, artifact)
+  const { content, error } = useArtifact(
+    projectId,
+    plugin?.id ?? '',
+    runId,
+    artifactId,
+    artifact,
+  )
   if (error) return <div className={styles.error}>{error}</div>
   if (!content) {
     return (

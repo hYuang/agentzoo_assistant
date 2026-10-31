@@ -80,6 +80,7 @@ export function RawView({ title, content }: { title: string; content: string }) 
 
 export function useArtifact(
   projectId: string,
+  pluginId: string,
   runId: string,
   id: string,
   artifact: PluginArtifactInfo | null,
@@ -93,7 +94,7 @@ export function useArtifact(
     if (!artifact || artifact.path.endsWith('/') || artifact.path.endsWith('\\')) {
       return
     }
-    readPluginArtifact(projectId, 'assistant', runId, id)
+    readPluginArtifact(projectId, pluginId, runId, id)
       .then((res) => {
         if (!cancelled) setContent(res.encoding === 'utf-8' ? res.content : null)
       })
@@ -113,6 +114,6 @@ export function useArtifact(
     return () => {
       cancelled = true
     }
-  }, [projectId, runId, id, artifact])
+  }, [projectId, pluginId, runId, id, artifact])
   return { content, error }
 }

@@ -21,10 +21,16 @@ function items(content: string): MaterialItem[] | null {
   return null
 }
 
-export function MaterialsModule({ projectId, runId, run }: ModuleProps) {
+export function MaterialsModule({ projectId, plugin, runId, run }: ModuleProps) {
   const { t, artifactLabel } = useAssistantI18n()
   const artifact = run.artifacts?.find((item) => item.id === 'materials') ?? null
-  const { content, error } = useArtifact(projectId, runId, 'materials', artifact)
+  const { content, error } = useArtifact(
+    projectId,
+    plugin?.id ?? '',
+    runId,
+    'materials',
+    artifact,
+  )
   if (error) return <div className={styles.error}>{error}</div>
   if (!content) {
     return (

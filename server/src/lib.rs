@@ -8,8 +8,8 @@
 use std::sync::{Arc, OnceLock};
 
 use crate::workflow::{
-    ArtifactSpec, ChatTaskSpec, GateSpec, WorkflowApp, WorkflowEntry, WorkflowManifest, RoleKind, RoleSpec,
-    StageSpec, WorkflowSpec, WORKFLOW_API_VERSION,
+    ArtifactSpec, ChatTaskSpec, GateSpec, RoleKind, RoleSpec, StageSpec, WorkflowApp,
+    WorkflowEntry, WorkflowManifest, WorkflowSpec, WORKFLOW_API_VERSION,
 };
 use async_trait::async_trait;
 use axum::extract::State;
@@ -31,6 +31,7 @@ use zoo_shared::tool::ToolSpec;
 pub mod catalog;
 pub mod runs;
 pub mod runs_api;
+mod synapse;
 mod workflow;
 
 pub struct AssistantApp;
@@ -68,6 +69,7 @@ impl WorkflowApp for AssistantApp {
             artifact("learner_state", "Practice progress", "learner-state.json"),
             artifact("review", "Analysis", "review.json"),
             artifact("report", "Report", "report.md"),
+            artifact("synapse", "Studio sync", "synapse.json"),
         ]
     }
 
@@ -513,6 +515,22 @@ fn routes(state: Arc<ServerState>) -> Router {
         .route(
             "/projects/{pid}/apps/{plugin}/runs/{run}",
             get(crate::runs_api::get),
+        )
+        .route(
+            "/projects/{pid}/apps/{plugin}/runs/{run}/synapse",
+            get(crate::synapse::api::get),
+        )
+        .route(
+            "/projects/{pid}/apps/{plugin}/runs/{run}/synapse/publish",
+            post(crate::synapse::api::publish),
+        )
+        .route(
+            "/projects/{pid}/apps/{plugin}/runs/{run}/synapse/login",
+            post(crate::synapse::api::login),
+        )
+        .route(
+            "/projects/{pid}/apps/{plugin}/runs/{run}/synapse/logout",
+            post(crate::synapse::api::logout),
         )
         .route(
             "/projects/{pid}/apps/{plugin}/runs/{run}/start",
