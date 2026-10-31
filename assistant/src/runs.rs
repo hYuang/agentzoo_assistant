@@ -20,10 +20,9 @@ use std::sync::Arc;
 use axum::http::HeaderMap;
 use axum::response::Response;
 use base64::Engine;
-use serde_json::Value;
 use uuid::Uuid;
 use crate::sdk::{
-    is_plugin_id, ArtifactStatus, Plugin, PluginRun, PluginRunControl, RoleKind, RunArtifact,
+    is_plugin_id, ArtifactStatus, Plugin, PluginRun, RoleKind, RunArtifact,
     RunInit, RunStatus, StageSpec, WorkflowSpec,
 };
 use zoo_shared::api::{
@@ -37,66 +36,6 @@ use zoo_shared::message::ProjectId;
 use zoo_server::ApiError;
 use zoo_server::service::packs::safe_join;
 use zoo_server::service::{files, sessions, ServerState};
-
-/// Host implementation of [`PluginRunControl`]: lets a plugin-contributed tool
-/// create and start a run from the conversation.
-pub struct ServerPluginRunControl {
-    state: Arc<ServerState>,
-}
-
-impl ServerPluginRunControl {
-    pub fn new(state: Arc<ServerState>) -> Self {
-        Self { state }
-    }
-}
-
-#[async_trait::async_trait]
-impl PluginRunControl for ServerPluginRunControl {
-    async fn create_run(
-        &self,
-        project_id: &str,
-        plugin_id: &str,
-        entry_id: &str,
-        input: Value,
-    ) -> Result<String, String> {
-        let body = CreatePluginRunRequest {
-            entry_id: Some(entry_id.to_string()),
-            input,
-        };
-        let info = crate::runs::create_run(
-            &self.state,
-            project_id,
-            plugin_id,
-            &body,
-        )
-        .await
-        .map_err(|error| error.to_string())?;
-        Ok(info.id)
-    }
-
-    async fn start_run(
-        &self,
-        project_id: &str,
-        plugin_id: &str,
-        run_id: &str,
-        stage: Option<&str>,
-    ) -> Result<(), String> {
-        let body = StartPluginRunRequest {
-            model: None,
-            stage: stage.map(str::to_string),
-        };
-        crate::runs::start_run(
-            &self.state,
-            project_id,
-            plugin_id,
-            run_id,
-            &body,
-        )
-        .await
-        .map_err(|error| error.to_string())?;
-        Ok(())
-    }
-}
 
 /// The runtime state directory for a project/plugin/run.
 pub fn run_dir(project_root: &Path, plugin_id: &str, run_id: &str) -> PathBuf {

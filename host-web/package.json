@@ -1,5 +1,5 @@
 {
-  "name": "@agentzoo/product-web",
+  "name": "@agentzoo/assistant-host",
   "private": true,
   "version": "1.1.0",
   "type": "module",
@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build"
   },
   "dependencies": {
-    "@agentzoo/web-ui": "file:../../agentzoo/zoo-web-ui",
+    "@agentzoo/web-ui": "git+ssh://git@github.com/hYuang/agentzoo.git#c66ffa6eaaaf7d1f10cea024e89d0e15bf7648ee",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
