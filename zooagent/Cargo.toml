@@ -14,6 +14,5 @@ zvec = ["zoo-bootstrap/zvec"]
 
 [dependencies]
 zoo-bootstrap = { workspace = true }
-zoo-plugins = { workspace = true }
 zoo-plugin-assistant = { workspace = true }
 tokio = { workspace = true }
