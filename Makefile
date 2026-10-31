@@ -37,13 +37,11 @@ build: frontend
 	$(CARGO) build --no-default-features $(ZVEC_FEATURE)
 	mkdir -p $(BIN_DIR)
 	cp target/debug/zooagent$(EXE) $(BIN_DIR)/zooagent$(EXE)
-	rm -rf $(BIN_DIR)/web && cp -r web/dist $(BIN_DIR)/web
 
 release: frontend
 	$(CARGO) build --release --no-default-features $(ZVEC_FEATURE)
 	mkdir -p $(BIN_DIR)
 	cp target/release/zooagent$(EXE) $(BIN_DIR)/zooagent$(EXE)
-	rm -rf $(BIN_DIR)/web && cp -r web/dist $(BIN_DIR)/web
 
 test:
 	$(CARGO) test --no-default-features $(ZVEC_FEATURE)

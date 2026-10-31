@@ -19,13 +19,13 @@ agentzoo_assistant/
 The framework is consumed as a normal dependency; there is no sibling checkout or path dependency:
 
 ```toml
-zoo-server = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.0", default-features = false }
+zoo-server = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.2.1", default-features = false }
 ```
 
 ```json
 {
   "dependencies": {
-    "@agentzoo/web-ui": "git+https://github.com/hYuang/agentzoo.git#v1.2.0"
+    "@agentzoo/web-ui": "git+https://github.com/hYuang/agentzoo.git#v1.2.1"
   }
 }
 ```
@@ -48,4 +48,4 @@ make test
 make release
 ```
 
-The binary serves the frontend from `web/dist` by default. Set `ZOO_WEB_DIST` to serve a different directory (for example `bin/web` in a packaged build).
+The frontend is embedded into the server binary at build time, so build `web/` before compiling the server.

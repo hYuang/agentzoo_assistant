@@ -24,4 +24,5 @@ rustc-ice-*.txt
 #.idea/
 /bin
 node_modules/
-web/dist/
+web/dist/*
+!web/dist/.gitkeep
