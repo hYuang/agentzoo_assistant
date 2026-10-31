@@ -3,9 +3,6 @@ resolver = "2"
 members = [
     "zooagent",
     "zoo-plugin-assistant",
-    "zoo-plugin-audiobook",
-    "zoo-plugin-observability",
-    "zoo-plugin-paper",
 ]
 
 [workspace.package]
@@ -16,24 +13,14 @@ license = "MIT"
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-serde_yaml = "0.9"
-thiserror = "2"
-uuid = { version = "1", features = ["v4"] }
-chrono = { version = "0.4", features = ["serde"] }
 async-trait = "0.1"
 tokio = { version = "1", features = ["full"] }
-tracing = "0.1"
 
 # Local development uses the sibling framework checkout at ../agentzoo.
 # For CI/publishing, replace these with git dependencies pinned to a tag, e.g.
 # zoo-server = { git = "git@github.com:hYuang/agentzoo.git", tag = "v1.1.0", default-features = false }
 zoo-shared = { path = "../agentzoo/zoo-shared" }
-zoo-ai = { path = "../agentzoo/zoo-ai" }
-zoo-store = { path = "../agentzoo/zoo-store" }
 zoo-agent = { path = "../agentzoo/zoo-agent" }
 zoo-plugins = { path = "../agentzoo/zoo-plugins" }
 zoo-server = { path = "../agentzoo/zoo-server", default-features = false }
 zoo-plugin-assistant = { path = "zoo-plugin-assistant" }
-zoo-plugin-audiobook = { path = "zoo-plugin-audiobook" }
-zoo-plugin-observability = { path = "zoo-plugin-observability" }
-zoo-plugin-paper = { path = "zoo-plugin-paper" }
