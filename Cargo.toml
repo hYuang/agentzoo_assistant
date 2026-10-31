@@ -18,6 +18,10 @@ axum = { version = "0.8", features = ["json"] }
 base64 = "0.22"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rsa = "0.9"
+sha2 = "0.10"
+rand = "0.8"
 
 # Framework crates are consumed from the git repository at a pinned tag.
 zoo-shared = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0" }

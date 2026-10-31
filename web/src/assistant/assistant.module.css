@@ -57,6 +57,234 @@
   order: -1;
 }
 
+.railFooter {
+  margin-top: auto;
+  padding: 14px 8px 4px;
+  border-top: 1px solid var(--border-muted);
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--bg-elevated) 55%, transparent)
+  );
+}
+
+.studioAccountHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 2px 9px;
+  color: var(--fg-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.studioAccountBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.studioAccountButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--border-muted);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.studioAccountButton:hover {
+  border-color: var(--accent-border);
+  background: var(--bg-layer-2);
+  color: var(--accent);
+}
+
+.studioAccountCard {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid var(--border-muted);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+}
+
+.studioAccountAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.studioAccountIdentity {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.studioAccountIdentity strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studioAccountIdentity span {
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studioAccountIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.studioAccountIconButton:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.studioAccountForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px;
+}
+
+.studioAccountField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.studioAccountField span {
+  color: var(--fg-muted);
+  font-size: 10px;
+}
+
+.studioAccountField input {
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.studioAccountField input:focus {
+  outline: none;
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.studioAccountActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.studioAccountPrimary,
+.studioAccountSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.studioAccountPrimary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.studioAccountPrimary:hover {
+  filter: brightness(1.08);
+}
+
+.studioAccountSecondary {
+  border: 1px solid var(--border-muted);
+  background: transparent;
+  color: var(--fg-muted);
+}
+
+.studioAccountSecondary:hover {
+  border-color: var(--border-strong);
+  color: var(--fg);
+}
+
+.studioAccountPrimary:disabled,
+.studioAccountSecondary:disabled {
+  opacity: 0.5;
+  cursor: default;
+  filter: none;
+}
+
+.studioAccountError {
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: color-mix(in srgb, #dc2626 12%, transparent);
+  color: #b91c1c;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.studioAccountHint {
+  margin-top: 8px;
+  color: var(--fg-muted);
+  font-size: 10px;
+}
+
 .railSectionTitle {
   margin: 0 6px 5px;
   color: var(--fg-muted);

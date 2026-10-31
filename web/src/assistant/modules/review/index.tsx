@@ -50,10 +50,17 @@ function parseReview(content: string): ReviewFile | null {
   return parsed ? (parsed as ReviewFile) : null
 }
 
-export function ReviewModule({ projectId, runId, run }: ModuleProps) {
+export function ReviewModule({ projectId, plugin, runId, run }: ModuleProps) {
   const { t, artifactLabel } = useAssistantI18n()
   const artifact = run.artifacts?.find((item) => item.id === 'review') ?? null
-  const { content, error } = useArtifact(projectId, runId, 'review', artifact)
+  const pluginId = plugin?.id ?? ''
+  const { content, error } = useArtifact(
+    projectId,
+    pluginId,
+    runId,
+    'review',
+    artifact,
+  )
   const [ratings, setRatings] = useState<Record<string, 'known' | 'unknown'>>({})
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
@@ -61,7 +68,7 @@ export function ReviewModule({ projectId, runId, run }: ModuleProps) {
 
   useEffect(() => {
     let cancelled = false
-    loadLearnerState(projectId, runId).then((state) => {
+    loadLearnerState(projectId, pluginId, runId).then((state) => {
       if (!cancelled) setRatings(state.card_ratings ?? {})
     })
     return () => {
@@ -105,7 +112,7 @@ export function ReviewModule({ projectId, runId, run }: ModuleProps) {
     setRatings(next)
     setSaving(true)
     try {
-      await updateLearnerState(projectId, runId, { card_ratings: next })
+      await updateLearnerState(projectId, pluginId, runId, { card_ratings: next })
       if (index < cards.length - 1) {
         setIndex(index + 1)
         setFlipped(false)

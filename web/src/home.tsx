@@ -9,6 +9,7 @@ import {
   type PluginInfo,
 } from '@agentzoo/web-ui'
 import { AssistantDashboard } from './assistant/AssistantDashboard'
+import { ASSISTANT_PLUGIN_ID } from './assistant/constants'
 
 export function AssistantHome() {
   const { createProject, projectId, setActiveProject } = useChat()
@@ -20,7 +21,9 @@ export function AssistantHome() {
   useEffect(() => {
     listPlugins()
       .then((res) =>
-        setPlugin(res.plugins.find((item) => item.id === 'assistant') ?? null),
+        setPlugin(
+          res.plugins.find((item) => item.id === ASSISTANT_PLUGIN_ID) ?? null,
+        ),
       )
       .catch(() => setPlugin(null))
   }, [])

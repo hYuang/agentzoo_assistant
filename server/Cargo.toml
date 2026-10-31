@@ -19,6 +19,10 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 async-trait = { workspace = true }
 tokio = { workspace = true }
+reqwest = { workspace = true }
+rsa = { workspace = true }
+sha2 = { workspace = true }
+rand = { workspace = true }
 rust-embed = "8"
 tracing = "0.1"
 

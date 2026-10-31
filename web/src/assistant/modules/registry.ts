@@ -5,6 +5,7 @@ import { KnowledgeBaseModule } from './knowledgeBase'
 import { KnowledgeModule, ReportModule } from './markdown'
 import { PracticeModule } from './practice'
 import { ReviewModule } from './review'
+import { SynapseModule } from '../synapse'
 
 const MODULES: AssistantModule[] = [
   {
@@ -20,6 +21,13 @@ const MODULES: AssistantModule[] = [
     group: 'workbench',
     order: 1,
     component: KnowledgeBaseModule,
+  },
+  {
+    id: 'synapse',
+    title: 'Studio sync',
+    group: 'workbench',
+    order: 2,
+    component: SynapseModule,
   },
   {
     id: 'materials',
