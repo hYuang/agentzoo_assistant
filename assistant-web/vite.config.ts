@@ -1,19 +1,9 @@
-import path from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { viteSingleFile } from 'vite-plugin-singlefile'
 
-const webUi = path.resolve(__dirname, '../../agentzoo/zoo-web-ui/src')
-
 export default defineConfig({
   plugins: [react(), viteSingleFile()],
-  resolve: {
-    alias: [
-      { find: '@agentzoo/web-ui/global.css', replacement: path.join(webUi, 'global.css') },
-      { find: /^@agentzoo\/web-ui$/, replacement: path.join(webUi, 'index.ts') },
-      { find: '@agentzoo/web-ui', replacement: webUi },
-    ],
-  },
   server: {
     port: 5174,
     proxy: {

@@ -12,8 +12,8 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use zoo_agent::tool::{Tool, ToolCtx, ToolError};
 use crate::sdk::{
-    ArtifactSpec, ChatTaskSpec, GateSpec, Plugin, PluginCtx, PluginEntry, PluginManifest,
-    PluginTool, PluginUiPage, RoleKind, RoleSpec, StageSpec, WorkflowSpec,
+    ArtifactSpec, ChatTaskSpec, GateSpec, Plugin, PluginEntry, PluginManifest,
+    PluginUiPage, RoleKind, RoleSpec, StageSpec, WorkflowSpec,
     PLUGIN_API_VERSION,
 };
 use axum::extract::State;
@@ -219,10 +219,6 @@ impl Plugin for AssistantPlugin {
             "" | "index.html" => Some(include_bytes!("../ui/index.html")),
             _ => None,
         }
-    }
-
-    fn tools(&self, _ctx: &PluginCtx) -> Vec<PluginTool> {
-        Vec::new()
     }
 
     fn chat_tasks(&self) -> Vec<ChatTaskSpec> {

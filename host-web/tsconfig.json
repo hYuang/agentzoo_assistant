@@ -14,8 +14,8 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@agentzoo/web-ui": ["../../agentzoo/zoo-web-ui/src/index.ts"],
-      "@agentzoo/web-ui/*": ["../../agentzoo/zoo-web-ui/src/*"]
+      "@agentzoo/web-ui": ["./node_modules/@agentzoo/web-ui/zoo-web-ui/src/index.ts"],
+      "@agentzoo/web-ui/*": ["./node_modules/@agentzoo/web-ui/zoo-web-ui/src/*"]
     }
   },
   "include": ["src"]

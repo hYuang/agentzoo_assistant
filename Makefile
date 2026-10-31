@@ -1,42 +1,34 @@
-# Builds the product `zooagent` binary (framework + learning assistant plugin).
+# Builds the product `zooagent` binary (framework libs + learning assistant app).
 #
 #   make                 -> debug -> bin/zooagent[.exe]
 #   make build           -> same
 #   make release         -> release
 #   make run             -> run in web mode
-#   make test            -> plugin workspace tests
+#   make test            -> app workspace tests
 #   make fmt             -> cargo fmt
 #   make clean           -> remove bin/
 #   make distclean       -> cargo clean + remove bin/
 #
-# The framework is the sibling checkout at `../agentzoo`. The product embeds
-# that checkout's `zoo-server/web/dist`, so the frontend is built there first.
+# Framework crates are consumed from the private git repository (see
+# Cargo.toml), not from a sibling checkout.
 
 CARGO ?= cargo
-FRAMEWORK := ../agentzoo
 BIN_DIR := bin
 
-ZVEC ?= 1
+ZVEC ?= 0
 ZVEC_FEATURE := $(if $(filter 1,$(ZVEC)),--features zvec,)
 
 ifeq ($(OS),Windows_NT)
   EXE := .exe
-  PRODUCT_WEB_CMD := cmd /c "cd web && npm install && npm run build"
+  PRODUCT_WEB_CMD := cmd /c "cd host-web && npm install && npm run build"
   PLUGIN_FRONTEND_CMD := cmd /c "cd assistant-web && npm install && npm run build"
-  ZVEC_DYLIB := zvec_c_api.dll
 else
   EXE :=
-  PRODUCT_WEB_CMD := cd web && npm install && npm run build
+  PRODUCT_WEB_CMD := cd host-web && npm install && npm run build
   PLUGIN_FRONTEND_CMD := cd assistant-web && npm install && npm run build
-  ZVEC_OS := $(shell uname -s)
-  ifeq ($(ZVEC_OS),Darwin)
-    ZVEC_DYLIB := libzvec_c_api.dylib
-  else
-    ZVEC_DYLIB := libzvec_c_api.so
-  endif
 endif
 
-.PHONY: all build release test run frontend plugin-frontend product-web fmt clean distclean stage-zvec
+.PHONY: all build release test run frontend plugin-frontend product-web fmt clean distclean
 
 all: build
 
@@ -52,31 +44,15 @@ build: frontend
 	$(CARGO) build --no-default-features $(ZVEC_FEATURE)
 	mkdir -p $(BIN_DIR)
 	cp target/debug/zooagent$(EXE) $(BIN_DIR)/zooagent$(EXE)
-ifeq ($(ZVEC),1)
-	$(MAKE) stage-zvec
-endif
+	rm -rf $(BIN_DIR)/host-web && cp -r host-web/dist $(BIN_DIR)/host-web
 
 release: frontend
 	$(CARGO) build --release --no-default-features $(ZVEC_FEATURE)
 	mkdir -p $(BIN_DIR)
 	cp target/release/zooagent$(EXE) $(BIN_DIR)/zooagent$(EXE)
-ifeq ($(ZVEC),1)
-	$(MAKE) stage-zvec
-endif
-
-# Reuse the framework's prebuilt zvec native library.
-stage-zvec:
-	$(MAKE) -C $(FRAMEWORK) fetch-zvec
-	cp $(FRAMEWORK)/bin/$(ZVEC_DYLIB) $(BIN_DIR)/
-	rm -rf $(BIN_DIR)/data && cp -r $(FRAMEWORK)/bin/data $(BIN_DIR)/data
+	rm -rf $(BIN_DIR)/host-web && cp -r host-web/dist $(BIN_DIR)/host-web
 
 test:
-ifeq ($(ZVEC),1)
-	$(MAKE) stage-zvec
-	mkdir -p target/debug/deps
-	cp $(BIN_DIR)/$(ZVEC_DYLIB) target/debug/deps/
-	rm -rf target/debug/deps/data && cp -r $(BIN_DIR)/data target/debug/deps/data
-endif
 	$(CARGO) test --no-default-features $(ZVEC_FEATURE)
 
 run:
