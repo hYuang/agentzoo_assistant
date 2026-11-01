@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import type { ModuleProps } from '../modules/types'
 import { useAssistantI18n } from '../i18n'
 import { useStudioSession } from './session'
-import { publishToSynapse, type SynapseRecord } from './api'
+import {
+  publishToSynapse,
+  type SynapsePublishMode,
+  type SynapseRecord,
+} from './api'
 import styles from '../assistant.module.css'
 
 export function SynapseModule({ projectId, plugin, runId, run }: ModuleProps) {
@@ -23,12 +27,12 @@ export function SynapseModule({ projectId, plugin, runId, run }: ModuleProps) {
     setRecord(status?.record ?? null)
   }, [status?.record])
 
-  const publish = async (replace: boolean) => {
+  const publish = async (mode: SynapsePublishMode) => {
     if (!pluginId) return
     setBusy(true)
     setError(null)
     try {
-      const result = await publishToSynapse(projectId, pluginId, runId, replace)
+      const result = await publishToSynapse(projectId, pluginId, runId, mode)
       setRecord(result.record)
       await refresh()
     } catch (e) {
@@ -49,25 +53,28 @@ export function SynapseModule({ projectId, plugin, runId, run }: ModuleProps) {
           <p className={styles.muted}>{t('synapseHint')}</p>
         </div>
         <div className={styles.quizActions}>
-          {record ? (
+          {record && (
             <button
               type="button"
               className={styles.btn}
               disabled={busy || !quizReady || !canPublish || !pluginId}
-              onClick={() => void publish(true)}
+              onClick={() => void publish('overwrite')}
             >
-              {busy ? t('synapseSyncing') : t('synapseResync')}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={styles.primary}
-              disabled={busy || !quizReady || !canPublish || !pluginId}
-              onClick={() => void publish(false)}
-            >
-              {busy ? t('synapseSyncing') : t('synapseSync')}
+              {busy ? t('synapseSyncing') : t('synapseOverwrite')}
             </button>
           )}
+          <button
+            type="button"
+            className={styles.primary}
+            disabled={busy || !quizReady || !canPublish || !pluginId}
+            onClick={() => void publish('add')}
+          >
+            {busy
+              ? t('synapseSyncing')
+              : record
+                ? t('synapseAdd')
+                : t('synapseSync')}
+          </button>
         </div>
       </div>
 

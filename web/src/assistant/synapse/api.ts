@@ -13,19 +13,39 @@ export interface SynapseSession {
   expires_in: number
 }
 
+export interface SynapsePaperRecord {
+  paper_id: number
+  title: string
+  question_count: number
+  question_ids: number[]
+  duration_minutes: number
+  synced_at: string
+}
+
+export interface SynapseKnowledgePointRecord {
+  id: number
+  name: string | null
+  synced_at: string | null
+}
+
 export interface SynapseRecord {
   paper_id: number
   title: string
   question_count: number
   question_ids: number[]
   knowledge_point_id: number
+  knowledge_name?: string
   knowledge_point_count: number
   duration_minutes: number
   synced_at: string
   tenant_id: string
   gateway_url: string
   run_id: string
+  papers?: SynapsePaperRecord[]
+  knowledge_points?: SynapseKnowledgePointRecord[]
 }
+
+export type SynapsePublishMode = 'add' | 'overwrite'
 
 export interface SynapseStatus {
   config: SynapseConfigSummary
@@ -69,12 +89,12 @@ export function publishToSynapse(
   projectId: string,
   pluginId: string,
   runId: string,
-  replace = false,
+  mode: SynapsePublishMode = 'add',
 ): Promise<SynapsePublishResult> {
   return call<SynapsePublishResult>(`${base(projectId, pluginId, runId)}/publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ replace }),
+    body: JSON.stringify({ mode }),
   })
 }
 
