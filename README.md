@@ -56,13 +56,15 @@ The Studio sync module (Chinese UI name: 智学工坊) publishes a generated pra
 Configure the assistant with:
 
 ```bash
-SYNAPSE_GATEWAY_URL=http://127.0.0.1:9000   # default
+SYNAPSE_GATEWAY_URL=https://mcode.cloud   # default
 SYNAPSE_TENANT_ID=nebula
 SYNAPSE_STUDIO_REFRESH_TOKEN=...           # preferred: refreshed automatically
 # or SYNAPSE_STUDIO_TOKEN=...              # short-lived access token
 ```
 
 Use an account that can create knowledge points, questions, and papers (the Studio admin role). You can also log in from the bottom-left Studio account panel with a tenant/account/password; the password is only used to obtain a token (`/gateway/public/service/studio/v1/AuthService/GetPublicKey` + `/Login`) and is not stored. The sync record is stored as `synapse.json` under the run's artifacts and shown in the workbench.
+
+When a run has already been published, the module offers two modes: **Add a new set** creates a new knowledge point plus a new paper with fresh questions and keeps all earlier sets untouched, while **Replace previous set** deletes this run's previously synced papers and questions first, then republishes under the run's latest knowledge point. The gateway has no knowledge-point delete API, so knowledge points created by earlier **Add** publishes remain in Studio after a replace.
 
 ## Build
 

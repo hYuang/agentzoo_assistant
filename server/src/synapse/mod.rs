@@ -17,7 +17,7 @@ use crate::runs;
 
 pub(crate) mod api;
 
-const DEFAULT_GATEWAY_URL: &str = "http://127.0.0.1:9000";
+const DEFAULT_GATEWAY_URL: &str = "https://mcode.cloud";
 const DEFAULT_DURATION_MINUTES: u32 = 30;
 const DEFAULT_PAPER_TITLE: &str = "AI 同步练习";
 const DEFAULT_KNOWLEDGE_TITLE: &str = "AI 知识图谱";
@@ -139,10 +139,31 @@ fn clear_session() {
     }
 }
 
+#[derive(Debug, Deserialize, Default, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PublishMode {
+    #[default]
+    Overwrite,
+    Add,
+}
+
 #[derive(Debug, Deserialize, Default)]
 pub struct PublishOptions {
     #[serde(default)]
+    pub mode: Option<PublishMode>,
+    #[serde(default)]
     pub replace: bool,
+}
+
+impl PublishOptions {
+    fn resolve_mode(&self) -> PublishMode {
+        self.mode
+            .unwrap_or(if self.replace {
+                PublishMode::Overwrite
+            } else {
+                PublishMode::Add
+            })
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -518,11 +539,7 @@ pub async fn publish(
         ));
     }
     let previous = load_record(state, project_id, plugin_id, run_id).await?;
-    if !options.replace {
-        if let Some(record) = previous.clone() {
-            return Ok(json!({ "record": record, "already_synced": true }));
-        }
-    }
+    let mode = options.resolve_mode();
 
     let content =
         runs::read_artifact(state, project_id, plugin_id, run_id, QUIZ_ARTIFACT_ID).await?;
@@ -550,22 +567,52 @@ pub async fn publish(
     let title = paper_title(&quiz, &run.input);
     let duration = paper_duration(&quiz, &run.input);
     let mut client = StudioClient::new(&config).await?;
-    if options.replace {
+    if mode == PublishMode::Overwrite {
         if let Some(record) = &previous {
             delete_previous(&mut client, record).await;
         }
     }
 
     let knowledge_name = markdown_title(&knowledge_content, &title);
-    let knowledge_point_id = sync_knowledge_point(
-        &mut client,
-        previous.as_ref(),
-        &knowledge_name,
-        &knowledge_content,
-    )
-    .await?;
+    let knowledge_point_id = if mode == PublishMode::Add {
+        create_knowledge_point(&mut client, &knowledge_name, &knowledge_content).await?
+    } else {
+        sync_knowledge_point(
+            &mut client,
+            previous.as_ref(),
+            &knowledge_name,
+            &knowledge_content,
+        )
+        .await?
+    };
     let question_ids = create_questions(&mut client, &quiz.questions, knowledge_point_id).await?;
     let paper_id = create_paper(&mut client, &title, duration, &question_ids).await?;
+
+    let synced_at = chrono::Utc::now().to_rfc3339();
+    let question_count = question_ids.len();
+    let paper = json!({
+        "paper_id": paper_id,
+        "title": title,
+        "question_count": question_count,
+        "question_ids": question_ids,
+        "duration_minutes": duration,
+        "synced_at": synced_at,
+    });
+    let mut papers = if mode == PublishMode::Add {
+        previous_papers(previous.as_ref())
+    } else {
+        Vec::new()
+    };
+    papers.push(paper);
+
+    let mut knowledge_points = previous_knowledge_points(previous.as_ref());
+    if mode == PublishMode::Add || knowledge_points.is_empty() {
+        knowledge_points.push(json!({
+            "id": knowledge_point_id,
+            "name": knowledge_name,
+            "synced_at": synced_at,
+        }));
+    }
 
     let record = json!({
         "run_id": run.id,
@@ -573,12 +620,15 @@ pub async fn publish(
         "tenant_id": client.tenant_id,
         "paper_id": paper_id,
         "title": title,
-        "question_count": question_ids.len(),
+        "question_count": question_count,
         "question_ids": question_ids,
         "knowledge_point_id": knowledge_point_id,
-        "knowledge_point_count": 1,
+        "knowledge_name": knowledge_name,
+        "knowledge_point_count": knowledge_points.len(),
         "duration_minutes": duration,
-        "synced_at": chrono::Utc::now().to_rfc3339(),
+        "synced_at": synced_at,
+        "papers": papers,
+        "knowledge_points": knowledge_points,
     });
     save_record(state, project_id, plugin_id, run_id, &record).await?;
     Ok(json!({ "record": record, "already_synced": false }))
@@ -648,6 +698,14 @@ async fn sync_knowledge_point(
             return Ok(id);
         }
     }
+    create_knowledge_point(client, name, content).await
+}
+
+async fn create_knowledge_point(
+    client: &mut StudioClient,
+    name: &str,
+    content: &str,
+) -> Result<i64, ApiError> {
     let created = client
         .post(
             GATEWAY_KNOWLEDGE_CREATE_PATH,
@@ -710,18 +768,57 @@ async fn create_paper(
 }
 
 async fn delete_previous(client: &mut StudioClient, record: &Value) {
-    if let Some(paper_id) = record.get("paper_id").and_then(Value::as_i64) {
-        let _ = client
-            .post(GATEWAY_PAPER_DELETE_PATH, json!({ "id": paper_id }))
-            .await;
-    }
-    if let Some(ids) = record.get("question_ids").and_then(Value::as_array) {
-        for id in ids.iter().filter_map(Value::as_i64) {
+    for paper in previous_papers(Some(record)) {
+        if let Some(paper_id) = paper.get("paper_id").and_then(Value::as_i64) {
             let _ = client
-                .post(GATEWAY_QUESTION_DELETE_PATH, json!({ "id": id }))
+                .post(GATEWAY_PAPER_DELETE_PATH, json!({ "id": paper_id }))
                 .await;
         }
+        if let Some(ids) = paper.get("question_ids").and_then(Value::as_array) {
+            for id in ids.iter().filter_map(Value::as_i64) {
+                let _ = client
+                    .post(GATEWAY_QUESTION_DELETE_PATH, json!({ "id": id }))
+                    .await;
+            }
+        }
     }
+}
+
+fn previous_papers(record: Option<&Value>) -> Vec<Value> {
+    let Some(record) = record else {
+        return Vec::new();
+    };
+    if let Some(papers) = record.get("papers").and_then(Value::as_array) {
+        return papers.clone();
+    }
+    let Some(paper_id) = record.get("paper_id").and_then(Value::as_i64) else {
+        return Vec::new();
+    };
+    vec![json!({
+        "paper_id": paper_id,
+        "title": record.get("title").cloned().unwrap_or(Value::Null),
+        "question_count": record.get("question_count").cloned().unwrap_or(Value::Null),
+        "question_ids": record.get("question_ids").cloned().unwrap_or_else(|| json!([])),
+        "duration_minutes": record.get("duration_minutes").cloned().unwrap_or(Value::Null),
+        "synced_at": record.get("synced_at").cloned().unwrap_or(Value::Null),
+    })]
+}
+
+fn previous_knowledge_points(record: Option<&Value>) -> Vec<Value> {
+    let Some(record) = record else {
+        return Vec::new();
+    };
+    if let Some(points) = record.get("knowledge_points").and_then(Value::as_array) {
+        return points.clone();
+    }
+    let Some(id) = record.get("knowledge_point_id").and_then(Value::as_i64) else {
+        return Vec::new();
+    };
+    vec![json!({
+        "id": id,
+        "name": record.get("knowledge_name").cloned().unwrap_or(Value::Null),
+        "synced_at": record.get("synced_at").cloned().unwrap_or(Value::Null),
+    })]
 }
 
 fn question_payload(question: &QuizQuestion, index: usize, knowledge_point_id: i64) -> Value {
