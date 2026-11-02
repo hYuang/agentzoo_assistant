@@ -22,18 +22,18 @@ The assistant app owns its workflow engine, HTTP routes, tools, frontend, and bu
 The framework is consumed as a normal dependency. There is no sibling checkout or path dependency:
 
 ```toml
-zoo-server = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0", default-features = false }
+zoo-server = { git = "https://github.com/hYuang/agentzoo.git", branch = "main", default-features = false }
 ```
 
 ```json
 {
   "dependencies": {
-    "@agentzoo/web-ui": "git+https://github.com/hYuang/agentzoo.git#v1.3.0"
+    "@agentzoo/web-ui": "github:hYuang/agentzoo#main"
   }
 }
 ```
 
-To upgrade, change the tag in `Cargo.toml` and `web/package.json`, then run `cargo update` and `npm install`.
+The dependencies track the framework's `main` branch. To pin a specific release, change the branch to a tag in `Cargo.toml` and `web/package.json`, then run `cargo update` and `npm install`.
 
 ## App integration
 
