@@ -119,6 +119,16 @@ pub async fn create_run(
     tokio::fs::create_dir_all(&artifacts)
         .await
         .map_err(internal)?;
+    // A new run starts from a clean slate: drop any artifacts left behind by
+    // a previous run so they are not mistaken for this run's output.
+    for spec in plugin.artifact_types() {
+        if let Some(rel) = spec.path.as_deref().filter(|p| !p.is_empty()) {
+            let path = artifacts.join(rel);
+            if path.is_file() {
+                let _ = tokio::fs::remove_file(&path).await;
+            }
+        }
+    }
     save_run(&dir, &run).await?;
     refresh_artifacts(&mut run, &artifacts).await;
     save_run(&dir, &run).await?;
