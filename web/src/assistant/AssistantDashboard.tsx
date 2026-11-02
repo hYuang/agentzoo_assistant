@@ -358,6 +358,26 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
                   {t('newRound')}
                 </button>
                 <Badge status={run.status} />
+                {['created', 'failed', 'cancelled'].includes(run.status) && (
+                  <button
+                    type="button"
+                    className={styles.primary}
+                    disabled={busy}
+                    onClick={() => void act('start')}
+                  >
+                    {t('start')}
+                  </button>
+                )}
+                {run.status === 'waiting_gate' && (
+                  <button
+                    type="button"
+                    className={styles.primary}
+                    disabled={busy}
+                    onClick={() => void act('approve')}
+                  >
+                    {t('approveContinue')}
+                  </button>
+                )}
                 {currentStage && (
                   <button
                     type="button"
@@ -395,49 +415,6 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
           </section>
 
           <aside className={styles.inspector}>
-            <div className={styles.inspectorTitle}>{t('currentStage')}</div>
-            {currentStage ? (
-              <>
-                <div className={styles.inspectorStage}>{stageLabel(currentStage.id)}</div>
-                <div className={styles.inspectorMeta}>
-                  {t('role')}: {roleLabel(currentStage.role)}
-                </div>
-                <div className={styles.inspectorMeta}>
-                  {t('gate')}: {currentStage.gate ? gateLabel(currentStage.gate) : '—'}
-                </div>
-                <div className={styles.inspectorMeta}>
-                  {t('status')}: {statusLabel(run.status)}
-                </div>
-              </>
-            ) : (
-              <div className={styles.inspectorMeta}>
-                {run.status === 'completed' ? t('completed') : t('statusCreated')}
-              </div>
-            )}
-
-            <div className={styles.inspectorActions}>
-              {['created', 'failed', 'cancelled'].includes(run.status) && (
-                <button
-                  type="button"
-                  className={styles.primary}
-                  disabled={busy}
-                  onClick={() => void (module.stageId ? runStage(module.stageId) : act('start'))}
-                >
-                  {t('start')}
-                </button>
-              )}
-              {run.status === 'waiting_gate' && (
-                <button
-                  type="button"
-                  className={styles.primary}
-                  disabled={busy}
-                  onClick={() => void act('approve')}
-                >
-                  {t('approveContinue')}
-                </button>
-              )}
-            </div>
-
             <div className={styles.inspectorTitle}>{t('processModules')}</div>
             <div className={styles.stageFlow}>
               {(workflow?.stages ?? []).map((stage, index, stages) => {
