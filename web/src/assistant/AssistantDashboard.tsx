@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   BookOpen,
+  Check,
   ChevronDown,
   FileText,
   FolderOpen,
@@ -437,20 +438,59 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
               )}
             </div>
 
-            <div className={styles.inspectorTitle}>{t('artifacts')}</div>
-            <div className={styles.inspectorArtifacts}>
-              {(run.artifacts ?? []).map((artifact) => (
-                <button
-                  key={artifact.id}
-                  type="button"
-                  className={styles.inspectorArtifact}
-                  onClick={() => openModule(artifact.id)}
-                >
-                  <span>{artifactLabel(artifact.id)}</span>
-                  <span className={styles.mono}>{artifact.status}</span>
-                </button>
-              ))}
+            <div className={styles.inspectorTitle}>{t('processModules')}</div>
+            <div className={styles.stageFlow}>
+              {(workflow?.stages ?? []).map((stage, index, stages) => {
+                const state = stageState(stage, run)
+                const stageModule = moduleForStage(stage.id)
+                const active = module.id === stageModule.id
+                const Icon = STAGE_ICONS[stage.id] ?? FileText
+                return (
+                  <div key={stage.id} className={styles.flowStep}>
+                    <button
+                      type="button"
+                      className={`${styles.flowNode} ${
+                        state === 'done'
+                          ? styles.flowNodeDone
+                          : state === 'current' || state === 'waiting'
+                            ? styles.flowNodeCurrent
+                            : ''
+                      } ${active ? styles.flowNodeActive : ''}`}
+                      onClick={() => openModule(stageModule.id)}
+                    >
+                      <span className={styles.flowIcon}>
+                        {state === 'done' ? (
+                          <Check size={13} strokeWidth={2.2} aria-hidden />
+                        ) : (
+                          <Icon size={14} strokeWidth={1.8} aria-hidden />
+                        )}
+                      </span>
+                      <span className={styles.flowBody}>
+                        <span className={styles.flowName}>{stageLabel(stage.id)}</span>
+                        <span className={styles.flowMeta}>
+                          {state === 'done'
+                            ? t('completed')
+                            : state === 'waiting'
+                              ? t('waiting')
+                              : state === 'current'
+                                ? t('running')
+                                : t('pending')}
+                        </span>
+                      </span>
+                    </button>
+                    {index < stages.length - 1 && (
+                      <span
+                        className={`${styles.flowConnector} ${
+                          state === 'done' ? styles.flowConnectorDone : ''
+                        }`}
+                        aria-hidden
+                      />
+                    )}
+                  </div>
+                )
+              })}
             </div>
+
           </aside>
         </main>
       </div>
