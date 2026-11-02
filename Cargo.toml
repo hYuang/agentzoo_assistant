@@ -23,10 +23,10 @@ rsa = "0.9"
 sha2 = "0.10"
 rand = "0.8"
 
-# Framework crates are consumed from the git repository at a pinned tag.
-zoo-shared = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0" }
-zoo-agent = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0" }
-zoo-server = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0", default-features = false }
-zoo-store = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0" }
-zoo-bootstrap = { git = "https://github.com/hYuang/agentzoo.git", tag = "v1.3.0", default-features = false }
+# Framework crates are consumed from the git repository main branch (latest).
+zoo-shared = { git = "https://github.com/hYuang/agentzoo.git", branch = "main" }
+zoo-agent = { git = "https://github.com/hYuang/agentzoo.git", branch = "main" }
+zoo-server = { git = "https://github.com/hYuang/agentzoo.git", branch = "main", default-features = false }
+zoo-store = { git = "https://github.com/hYuang/agentzoo.git", branch = "main" }
+zoo-bootstrap = { git = "https://github.com/hYuang/agentzoo.git", branch = "main", default-features = false }
 
