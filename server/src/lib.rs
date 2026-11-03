@@ -97,8 +97,9 @@ impl WorkflowApp for AssistantApp {
                     vec!["file_read", "web_search", "file_write"],
                     vec!["intake"],
                     vec!["knowledge"],
-                    "基于 materials.json 生成 knowledge-map.md：知识点清单、考纲要求、重点/易错点、知识点之间的前置关系，以及题型分布。\
-                     如果提供了往年真题，总结题型、难度和考点分布；引用资料 id。",
+                    "基于 materials.json 生成 knowledge-map.md。用一级标题写主题名，每个知识点单独一节，二级标题格式必须是 `## kpN 知识点名称`（N 从 1 递增，id 稳定不复用）。\
+                      每节内写该知识点的考纲要求、重点/易错点；知识点之间的前置关系、题型分布等跨知识点内容写在文末「## 总览」一节（id 不参与题目挂靠）。\
+                      如果提供了往年真题，总结题型、难度和考点分布；引用资料 id。",
                 ),
                 gated(
                     stage(
@@ -115,7 +116,8 @@ impl WorkflowApp for AssistantApp {
                          {\"id\":\"q3\",\"type\":\"code\",\"question\":\"...\",\"answer\":\"参考代码\",\"explanation\":\"...\",\"difficulty\":\"hard\",\"concept\":\"...\",\"source\":\"...\"}]}。\
                          题量取 run.input 的 question_count（缺省 20），限时取 time_limit_minutes（缺省 30）。\
                          题目要覆盖知识点和考纲，参考往年真题的题型/难度分布；不要逐字照抄真题，引用时在 source 中标注。\
-                         choice 的 answer 是正确选项的 0-based 索引；short/code 的 answer 是参考答案。答案与解析必须齐全。",
+                          choice 的 answer 是正确选项的 0-based 索引；short/code 的 answer 是参考答案。答案与解析必须齐全。\
+                          每题的 concept 必须填该题所属知识点在 knowledge-map.md 中的 id（如 \"kp1\"），不要写自由文本。",
                     ),
                     "practice",
                 ),

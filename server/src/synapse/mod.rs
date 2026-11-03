@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -606,19 +607,26 @@ pub async fn publish(
         }
     }
 
-    let knowledge_name = markdown_title(&knowledge_content, &title);
-    let knowledge_point_id = if mode == PublishMode::Add {
-        create_knowledge_point(&mut client, &knowledge_name, &knowledge_content).await?
-    } else {
-        sync_knowledge_point(
-            &mut client,
-            previous.as_ref(),
-            &knowledge_name,
-            &knowledge_content,
-        )
-        .await?
-    };
-    let question_ids = create_questions(&mut client, &quiz.questions, knowledge_point_id).await?;
+    let sections = parse_knowledge_sections(&knowledge_content, &title);
+    let mut knowledge_point_ids = Vec::with_capacity(sections.len());
+    for (index, section) in sections.iter().enumerate() {
+        let id = if mode == PublishMode::Add {
+            create_knowledge_point(&mut client, &section.name, &section.content).await?
+        } else {
+            sync_knowledge_point(
+                &mut client,
+                previous.as_ref(),
+                index,
+                &section.name,
+                &section.content,
+            )
+            .await?
+        };
+        knowledge_point_ids.push(id);
+    }
+    let concept_ids = concept_index(&sections);
+    let question_ids =
+        create_questions(&mut client, &quiz.questions, &knowledge_point_ids, &concept_ids).await?;
     let paper_id = create_paper(&mut client, &title, duration, &question_ids).await?;
 
     let synced_at = chrono::Utc::now().to_rfc3339();
@@ -640,11 +648,13 @@ pub async fn publish(
 
     let mut knowledge_points = previous_knowledge_points(previous.as_ref());
     if mode == PublishMode::Add || knowledge_points.is_empty() {
-        knowledge_points.push(json!({
-            "id": knowledge_point_id,
-            "name": knowledge_name,
-            "synced_at": synced_at,
-        }));
+        for (section, id) in sections.iter().zip(knowledge_point_ids.iter()) {
+            knowledge_points.push(json!({
+                "id": id,
+                "name": section.name,
+                "synced_at": synced_at,
+            }));
+        }
     }
 
     let record = json!({
@@ -655,8 +665,8 @@ pub async fn publish(
         "title": title,
         "question_count": question_count,
         "question_ids": question_ids,
-        "knowledge_point_id": knowledge_point_id,
-        "knowledge_name": knowledge_name,
+        "knowledge_point_id": knowledge_point_ids.first().copied(),
+        "knowledge_point_ids": knowledge_point_ids,
         "knowledge_point_count": knowledge_points.len(),
         "duration_minutes": duration,
         "synced_at": synced_at,
@@ -714,11 +724,14 @@ fn markdown_title(content: &str, fallback: &str) -> String {
 async fn sync_knowledge_point(
     client: &mut StudioClient,
     previous: Option<&Value>,
+    index: usize,
     name: &str,
     content: &str,
 ) -> Result<i64, ApiError> {
     if let Some(id) = previous
-        .and_then(|record| record.get("knowledge_point_id"))
+        .and_then(|record| record.get("knowledge_point_ids"))
+        .and_then(Value::as_array)
+        .and_then(|ids| ids.get(index))
         .and_then(Value::as_i64)
     {
         let updated = client
@@ -754,11 +767,17 @@ async fn create_knowledge_point(
 async fn create_questions(
     client: &mut StudioClient,
     questions: &[QuizQuestion],
-    knowledge_point_id: i64,
+    knowledge_point_ids: &[i64],
+    concept_ids: &HashMap<String, usize>,
 ) -> Result<Vec<i64>, ApiError> {
     let mut question_ids = Vec::with_capacity(questions.len());
     for (index, question) in questions.iter().enumerate() {
-        let payload = question_payload(question, index, knowledge_point_id);
+        let point_index = concept_ids
+            .get(question.concept.trim())
+            .copied()
+            .unwrap_or(0)
+            .min(knowledge_point_ids.len().saturating_sub(1));
+        let payload = question_payload(question, index, knowledge_point_ids[point_index]);
         let created = client.post(GATEWAY_QUESTION_CREATE_PATH, payload).await?;
         let id = created
             .get("id")
@@ -852,6 +871,82 @@ fn previous_knowledge_points(record: Option<&Value>) -> Vec<Value> {
         "name": record.get("knowledge_name").cloned().unwrap_or(Value::Null),
         "synced_at": record.get("synced_at").cloned().unwrap_or(Value::Null),
     })]
+}
+
+struct KnowledgeSection {
+    id: String,
+    name: String,
+    content: String,
+}
+
+fn parse_knowledge_sections(content: &str, fallback_title: &str) -> Vec<KnowledgeSection> {
+    let mut raw: Vec<(String, String, Vec<String>)> = Vec::new();
+    let mut current: Option<(String, String, Vec<String>)> = None;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if let Some(heading) = trimmed.strip_prefix("## ") {
+            if let Some(section) = current.take() {
+                raw.push(section);
+            }
+            let (kp_id, name) = split_kp_heading(heading);
+            current = Some((kp_id, name, Vec::new()));
+        } else if trimmed.starts_with('#') && !trimmed.starts_with("##") {
+            current = None;
+        } else if let Some((_, _, body)) = &mut current {
+            body.push(line.to_string());
+        }
+    }
+    if let Some(section) = current {
+        raw.push(section);
+    }
+    let mut sections = raw
+        .into_iter()
+        .map(|(id, name, body)| KnowledgeSection { id, name, content: body.join("\n") })
+        .filter(|section| !section.name.is_empty() && !section.content.trim().is_empty())
+        .collect::<Vec<_>>();
+    if sections.is_empty() {
+        sections.push(KnowledgeSection {
+            id: "kp1".into(),
+            name: markdown_title(content, fallback_title),
+            content: content.to_string(),
+        });
+    }
+    sections
+}
+
+fn split_kp_heading(heading: &str) -> (String, String) {
+    let heading = heading.trim();
+    if let Some(rest) = heading.strip_prefix("kp") {
+        let mut digits = String::new();
+        for ch in rest.chars() {
+            if ch.is_ascii_digit() {
+                digits.push(ch);
+            } else {
+                break;
+            }
+        }
+        if !digits.is_empty() {
+            let name = rest[digits.len()..]
+                .trim()
+                .trim_start_matches(['-', ':', '：', ' '])
+                .trim();
+            if !name.is_empty() {
+                return (format!("kp{digits}"), name.to_string());
+            }
+        }
+    }
+    (String::new(), heading.to_string())
+}
+
+fn concept_index(sections: &[KnowledgeSection]) -> HashMap<String, usize> {
+    let mut index = HashMap::new();
+    for (position, section) in sections.iter().enumerate() {
+        if !section.id.is_empty() {
+            index.insert(section.id.to_ascii_lowercase(), position);
+        }
+        index.insert(section.name.to_string(), position);
+    }
+    index
 }
 
 fn question_payload(question: &QuizQuestion, index: usize, knowledge_point_id: i64) -> Value {
@@ -1028,4 +1123,54 @@ async fn save_record(
         })?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_kp_sections() {
+        let content = "# 三角函数\n\n## kp1 正弦函数\n\n考纲要求：掌握图像与性质。\n重点：周期性。\n\n## kp2 余弦函数\n\n考纲要求：掌握图像与性质。\n\n## 总览\n\n前置关系：kp1 -> kp2。\n";
+        let sections = parse_knowledge_sections(content, "fallback");
+        assert_eq!(sections.len(), 3);
+        assert_eq!(sections[0].id, "kp1");
+        assert_eq!(sections[0].name, "正弦函数");
+        assert!(sections[0].content.contains("周期性"));
+        assert_eq!(sections[1].id, "kp2");
+        assert_eq!(sections[1].name, "余弦函数");
+        assert_eq!(sections[2].id, "");
+        assert_eq!(sections[2].name, "总览");
+    }
+
+    #[test]
+    fn falls_back_to_single_section_without_headings() {
+        let content = "只有正文，没有二级标题。";
+        let sections = parse_knowledge_sections(content, "回退标题");
+        assert_eq!(sections.len(), 1);
+        assert_eq!(sections[0].id, "kp1");
+        assert_eq!(sections[0].name, "回退标题");
+        assert_eq!(sections[0].content, content);
+    }
+
+    #[test]
+    fn concept_index_maps_ids_and_names() {
+        let sections = vec![
+            KnowledgeSection {
+                id: "kp1".into(),
+                name: "正弦函数".into(),
+                content: "x".into(),
+            },
+            KnowledgeSection {
+                id: "kp2".into(),
+                name: "余弦函数".into(),
+                content: "y".into(),
+            },
+        ];
+        let index = concept_index(&sections);
+        assert_eq!(index.get("kp1"), Some(&0));
+        assert_eq!(index.get("kp2"), Some(&1));
+        assert_eq!(index.get("正弦函数"), Some(&0));
+        assert_eq!(index.get("unknown"), None);
+    }
 }

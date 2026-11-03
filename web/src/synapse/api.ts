@@ -33,7 +33,8 @@ export interface SynapseRecord {
   title: string
   question_count: number
   question_ids: number[]
-  knowledge_point_id: number
+  knowledge_point_id?: number
+  knowledge_point_ids?: number[]
   knowledge_name?: string
   knowledge_point_count: number
   duration_minutes: number
