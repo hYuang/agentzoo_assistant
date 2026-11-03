@@ -20,7 +20,7 @@ import {
   startPluginRun,
 } from '@agentzoo/web-ui'
 import { useChat } from '@agentzoo/web-ui'
-import type { PluginDashboardProps } from '../contract'
+import type { PluginDashboardProps } from './contract'
 import type { PluginRunInfo } from '@agentzoo/web-ui'
 import { Badge, stageState } from './modules/shared'
 import { moduleById, moduleForStage, workbenchModules } from './modules/registry'
