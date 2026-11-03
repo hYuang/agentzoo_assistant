@@ -29,12 +29,19 @@ pub(crate) async fn publish(
 }
 
 pub(crate) async fn login(
+    State(state): State<Arc<ServerState>>,
+    Path((pid, plugin, run)): Path<(String, String, String)>,
     Json(request): Json<LoginRequest>,
 ) -> Result<Json<ApiResult<Value>>, ApiError> {
     let config = SynapseConfig::from_env();
-    Ok(Json(ApiResult::ok(synapse::login(&config, request).await?)))
+    Ok(Json(ApiResult::ok(
+        synapse::login(&state, &pid, &plugin, &run, &config, request).await?,
+    )))
 }
 
-pub(crate) async fn logout() -> Json<ApiResult<Value>> {
-    Json(ApiResult::ok(synapse::logout()))
+pub(crate) async fn logout(
+    State(state): State<Arc<ServerState>>,
+    Path((pid, plugin, run)): Path<(String, String, String)>,
+) -> Json<ApiResult<Value>> {
+    Json(ApiResult::ok(synapse::logout(&state, &pid, &plugin, &run).await))
 }

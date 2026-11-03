@@ -52,6 +52,8 @@ export interface SynapseStatus {
   session: SynapseSession | null
   can_publish: boolean
   record: SynapseRecord | null
+  remembered_account?: string | null
+  remembered_password?: string | null
 }
 
 export interface SynapsePublishResult {
@@ -63,6 +65,7 @@ export interface SynapseLoginRequest {
   tenant_id?: string
   user_account: string
   password: string
+  remember?: boolean
 }
 
 const base = (projectId: string, pluginId: string, runId: string) =>

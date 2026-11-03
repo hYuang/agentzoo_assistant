@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { LogIn, LogOut, UserRound } from 'lucide-react'
 import { useStudioSession } from './session'
 import { useAssistantI18n } from '../i18n'
@@ -11,8 +11,22 @@ export function StudioAccountPanel() {
   const [tenant, setTenant] = useState('')
   const [account, setAccount] = useState('')
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(true)
   const [busy, setBusy] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
+  const [prefilled, setPrefilled] = useState(false)
+
+  const rememberedAccount = status?.remembered_account ?? ''
+  const rememberedPassword = status?.remembered_password ?? ''
+
+  useEffect(() => {
+    if (!open || prefilled) return
+    if (!rememberedAccount && !rememberedPassword) return
+    setAccount(rememberedAccount)
+    setPassword(rememberedPassword)
+    setRemember(true)
+    setPrefilled(true)
+  }, [open, prefilled, rememberedAccount, rememberedPassword])
 
   const defaultTenant = status?.config.tenant_id ?? ''
   const effectiveTenant = tenant || defaultTenant
@@ -29,6 +43,7 @@ export function StudioAccountPanel() {
         tenant_id: effectiveTenant.trim(),
         user_account: account.trim(),
         password,
+        remember,
       })
       setOpen(false)
       setPassword('')
@@ -91,6 +106,14 @@ export function StudioAccountPanel() {
               autoComplete="current-password"
               onChange={(e) => setPassword(e.target.value)}
             />
+          </label>
+          <label className={styles.studioAccountRemember}>
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            <span>{t('synapseRemember')}</span>
           </label>
           <div className={styles.studioAccountActions}>
             <button
