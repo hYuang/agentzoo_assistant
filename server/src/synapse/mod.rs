@@ -6,7 +6,7 @@ use base64::Engine;
 use rand::thread_rng;
 use rsa::pkcs8::DecodePublicKey;
 use rsa::{Oaep, RsaPublicKey};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::Sha256;
 use zoo_server::service::ServerState;
@@ -91,14 +91,41 @@ fn env(key: &str) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 struct StudioSession {
     tenant_id: String,
     user_account: String,
     name: String,
     token: String,
     refresh_token: Option<String>,
+    #[serde(with = "in_unix_epoch_secs")]
     expires_at: Instant,
+}
+
+mod in_unix_epoch_secs {
+    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+    use serde::Deserialize;
+
+    pub fn serialize<S>(instant: &Instant, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let elapsed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default();
+        let remaining = instant.saturating_duration_since(Instant::now());
+        let epoch = elapsed + remaining;
+        serializer.serialize_u64(epoch.as_secs())
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Instant, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let secs = u64::deserialize(deserializer)?;
+        Ok(Instant::now() + Duration::from_secs(secs))
+    }
 }
 
 static SESSION: OnceLock<Mutex<Option<StudioSession>>> = OnceLock::new();
@@ -137,6 +164,62 @@ fn clear_session() {
     if let Ok(mut guard) = session_slot().lock() {
         *guard = None;
     }
+}
+
+fn credential_file_path(project_path: &std::path::Path) -> std::path::PathBuf {
+    project_path
+        .join(".zoo_agent")
+        .join("assistant")
+        .join("studio-credentials.json")
+}
+
+async fn load_credential_file(project_path: &std::path::Path) -> Option<StudioSession> {
+    let path = credential_file_path(project_path);
+    let content = tokio::fs::read_to_string(&path).await.ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+async fn save_credential_file(project_path: &std::path::Path, session: &StudioSession) {
+    let path = credential_file_path(project_path);
+    if let Some(parent) = path.parent() {
+        if let Err(error) = tokio::fs::create_dir_all(parent).await {
+            tracing::warn!("create studio credential dir failed: {error}");
+            return;
+        }
+    }
+    match serde_json::to_string_pretty(session) {
+        Ok(content) => {
+            if let Err(error) = tokio::fs::write(&path, content).await {
+                tracing::warn!("write studio credential file failed: {error}");
+            }
+        }
+        Err(error) => tracing::warn!("serialize studio credential failed: {error}"),
+    }
+}
+
+async fn clear_credential_file(project_path: &std::path::Path) {
+    let path = credential_file_path(project_path);
+    if let Err(error) = tokio::fs::remove_file(&path).await {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            tracing::warn!("remove studio credential file failed: {error}");
+        }
+    }
+}
+
+async fn restore_session(state: &ServerState, project_id: &str) {
+    if session_snapshot().is_some() {
+        return;
+    }
+    let Some(project) = state.project(&ProjectId::from(project_id)).await else {
+        return;
+    };
+    let Some(session) = load_credential_file(&project.path).await else {
+        return;
+    };
+    if session.expires_at <= Instant::now() {
+        return;
+    }
+    store_session(session);
 }
 
 #[derive(Debug, Deserialize, Default, Clone, Copy, PartialEq, Eq)]
@@ -220,10 +303,14 @@ struct StudioClient {
     token: String,
     refresh_token: Option<String>,
     from_session: bool,
+    project_path: Option<std::path::PathBuf>,
 }
 
 impl StudioClient {
-    async fn new(config: &SynapseConfig) -> Result<Self, ApiError> {
+    async fn new(
+        config: &SynapseConfig,
+        project_path: Option<std::path::PathBuf>,
+    ) -> Result<Self, ApiError> {
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
@@ -236,6 +323,7 @@ impl StudioClient {
                 token: session.token,
                 refresh_token: session.refresh_token,
                 from_session: true,
+                project_path,
             });
         }
         let tenant_id = config.tenant_id.clone();
@@ -263,6 +351,7 @@ impl StudioClient {
             token,
             refresh_token,
             from_session: false,
+            project_path,
         })
     }
 
@@ -321,7 +410,10 @@ impl StudioClient {
                 session.token = self.token.clone();
                 session.refresh_token = Some(new_refresh);
                 session.expires_at = Instant::now() + Duration::from_secs(expires_in);
-                store_session(session);
+                store_session(session.clone());
+                if let Some(ref path) = self.project_path {
+                    save_credential_file(path, &session).await;
+                }
             }
         }
         Ok(())
@@ -499,14 +591,18 @@ pub async fn login(
         .and_then(Value::as_str)
         .unwrap_or(user_account)
         .to_string();
-    store_session(StudioSession {
+    let session = StudioSession {
         tenant_id: tenant.clone(),
         user_account: user_account.clone(),
         name,
         token,
         refresh_token,
         expires_at: Instant::now() + Duration::from_secs(expires_in),
-    });
+    };
+    store_session(session.clone());
+    if let Some(project) = state.project(&ProjectId::from(project_id)).await {
+        save_credential_file(&project.path, &session).await;
+    }
     if request.remember {
         let mut record = load_record(state, project_id, run_id)
             .await?
@@ -522,6 +618,9 @@ pub async fn login(
 
 pub async fn logout(state: &ServerState, project_id: &str, run_id: &str) -> Value {
     clear_session();
+    if let Some(project) = state.project(&ProjectId::from(project_id)).await {
+        clear_credential_file(&project.path).await;
+    }
     if let Ok(Some(mut record)) = load_record(state, project_id, run_id).await {
         if let Some(obj) = record.as_object_mut() {
             obj.remove("remembered_account");
@@ -539,6 +638,7 @@ pub async fn status(
     project_id: &str,
     run_id: &str,
 ) -> Result<Value, ApiError> {
+    restore_session(state, project_id).await;
     let config = SynapseConfig::from_env();
     let session = session_summary();
     let record = load_record(state, project_id, run_id).await?;
@@ -597,10 +697,14 @@ pub async fn publish(
         return Err(ApiError::InvalidRequest("knowledge-map.md is empty".into()));
     }
     let run = runs::get_run(state, project_id, run_id).await?;
+    let project_path = state
+        .project(&ProjectId::from(project_id))
+        .await
+        .map(|project| project.path);
 
     let title = paper_title(&quiz, &run.input);
     let duration = paper_duration(&quiz, &run.input);
-    let mut client = StudioClient::new(&config).await?;
+    let mut client = StudioClient::new(&config, project_path).await?;
     if mode == PublishMode::Overwrite {
         if let Some(record) = &previous {
             delete_previous(&mut client, record).await;
@@ -625,8 +729,13 @@ pub async fn publish(
         knowledge_point_ids.push(id);
     }
     let concept_ids = concept_index(&sections);
-    let question_ids =
-        create_questions(&mut client, &quiz.questions, &knowledge_point_ids, &concept_ids).await?;
+    let question_ids = create_questions(
+        &mut client,
+        &quiz.questions,
+        &knowledge_point_ids,
+        &concept_ids,
+    )
+    .await?;
     let paper_id = create_paper(&mut client, &title, duration, &question_ids).await?;
 
     let synced_at = chrono::Utc::now().to_rfc3339();
@@ -901,7 +1010,11 @@ fn parse_knowledge_sections(content: &str, fallback_title: &str) -> Vec<Knowledg
     }
     let mut sections = raw
         .into_iter()
-        .map(|(id, name, body)| KnowledgeSection { id, name, content: body.join("\n") })
+        .map(|(id, name, body)| KnowledgeSection {
+            id,
+            name,
+            content: body.join("\n"),
+        })
         .filter(|section| !section.name.is_empty() && !section.content.trim().is_empty())
         .collect::<Vec<_>>();
     if sections.is_empty() {
@@ -1016,7 +1129,9 @@ fn choice_answer_tokens(answer: &Value, options: &[String]) -> String {
             .iter()
             .filter_map(|item| option_letter(item, options))
             .collect::<Vec<_>>(),
-        _ => option_letter(answer, options).into_iter().collect::<Vec<_>>(),
+        _ => option_letter(answer, options)
+            .into_iter()
+            .collect::<Vec<_>>(),
     };
     serde_json::to_string(&tokens).unwrap_or_else(|_| "[]".to_string())
 }
