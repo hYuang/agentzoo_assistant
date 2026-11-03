@@ -8,8 +8,8 @@ import {
   useI18n,
   type PluginInfo,
 } from '@agentzoo/web-ui'
-import { AssistantDashboard } from './assistant/AssistantDashboard'
-import { ASSISTANT_PLUGIN_ID } from './assistant/constants'
+import { AssistantDashboard } from './AssistantDashboard'
+import { ASSISTANT_PLUGIN_ID } from './constants'
 
 export function AssistantHome() {
   const { createProject, projectId, setActiveProject } = useChat()
