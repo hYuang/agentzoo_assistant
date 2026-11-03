@@ -863,11 +863,14 @@ fn question_payload(question: &QuizQuestion, index: usize, knowledge_point_id: i
         "" if !question.options.is_empty() => "single",
         _ => "short_answer",
     };
-    let options = serde_json::to_string(&question.options).unwrap_or_else(|_| "[]".to_string());
-    let answer = if studio_type == "single" {
-        answer_index(&question.answer, &question.options)
-            .and_then(|idx| question.options.get(idx).cloned())
-            .unwrap_or_else(|| answer_text(&question.answer))
+    let options = question
+        .options
+        .iter()
+        .enumerate()
+        .map(|(idx, text)| json!({ "letter": letter_for(idx), "text": text }))
+        .collect::<Vec<_>>();
+    let answer = if is_choice_type(studio_type) {
+        choice_answer_tokens(&question.answer, &question.options)
     } else {
         answer_text(&question.answer)
     };
@@ -878,10 +881,11 @@ fn question_payload(question: &QuizQuestion, index: usize, knowledge_point_id: i
         vec![concept]
     };
     let knowledge_point_ids = vec![knowledge_point_id];
+    let options_json = serde_json::to_string(&options).unwrap_or_else(|_| "[]".to_string());
     json!({
         "question_type": studio_type,
         "stem": question.question,
-        "options": options,
+        "options": options_json,
         "answer": answer,
         "analysis": question.explanation,
         "difficulty": difficulty(&question.difficulty),
@@ -891,21 +895,52 @@ fn question_payload(question: &QuizQuestion, index: usize, knowledge_point_id: i
     })
 }
 
-fn answer_index(answer: &Value, options: &[String]) -> Option<usize> {
-    match answer {
-        Value::Number(number) => number.as_u64().map(|value| value as usize),
+fn is_choice_type(studio_type: &str) -> bool {
+    matches!(
+        studio_type,
+        "listening" | "single" | "multi" | "indefinite" | "judge" | "cloze" | "reading"
+    )
+}
+
+fn letter_for(index: usize) -> String {
+    let mut n = index as u64;
+    let mut letter = String::new();
+    loop {
+        letter.insert(0, (b'A' + (n % 26) as u8) as char);
+        if n < 26 {
+            break;
+        }
+        n = n / 26 - 1;
+    }
+    letter
+}
+
+fn choice_answer_tokens(answer: &Value, options: &[String]) -> String {
+    let tokens = match answer {
+        Value::Array(items) => items
+            .iter()
+            .filter_map(|item| option_letter(item, options))
+            .collect::<Vec<_>>(),
+        _ => option_letter(answer, options).into_iter().collect::<Vec<_>>(),
+    };
+    serde_json::to_string(&tokens).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn option_letter(value: &Value, options: &[String]) -> Option<String> {
+    match value {
+        Value::Number(number) => number.as_u64().map(|value| letter_for(value as usize)),
         Value::String(text) => {
             let text = text.trim();
             if let Ok(index) = text.parse::<usize>() {
-                return Some(index);
+                return Some(letter_for(index));
             }
             if let Some(index) = options.iter().position(|option| option == text) {
-                return Some(index);
+                return Some(letter_for(index));
             }
             let mut chars = text.chars();
             match (chars.next(), chars.next()) {
                 (Some(letter), None) if letter.is_ascii_alphabetic() => {
-                    Some((letter.to_ascii_uppercase() as u8 - b'A') as usize)
+                    Some(letter.to_ascii_uppercase().to_string())
                 }
                 _ => None,
             }
