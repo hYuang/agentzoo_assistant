@@ -3,12 +3,10 @@ use crate::AssistantApp;
 
 #[test]
 fn workflow_references_are_consistent() {
-    let plugin = AssistantApp;
-    let manifest = plugin.manifest();
-    assert_eq!(manifest.id, "assistant");
-    let workflows = plugin.workflows();
+    let app = AssistantApp;
+    let workflows = app.workflows();
     assert_eq!(workflows.len(), 1);
-    let artifacts = plugin.artifact_types();
+    let artifacts = app.artifact_types();
     for stage in &workflows[0].stages {
         for output in &stage.outputs {
             assert!(
@@ -46,5 +44,4 @@ fn workflow_references_are_consistent() {
             gate.approver
         );
     }
-    assert!(!plugin.entries().is_empty());
 }

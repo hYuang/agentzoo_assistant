@@ -70,17 +70,10 @@ function clock(seconds: number): string {
     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export function PracticeModule({ projectId, plugin, runId, run, onAct }: ModuleProps) {
+export function PracticeModule({ projectId, runId, run, onAct }: ModuleProps) {
   const { t, artifactLabel } = useAssistantI18n()
   const artifact = run.artifacts?.find((item) => item.id === 'quiz') ?? null
-  const pluginId = plugin?.id ?? ''
-  const { content, error } = useArtifact(
-    projectId,
-    pluginId,
-    runId,
-    'quiz',
-    artifact,
-  )
+  const { content, error } = useArtifact(projectId, runId, 'quiz', artifact)
   const [answers, setAnswers] = useState<Record<string, LearnerAnswer>>({})
   const [submitted, setSubmitted] = useState(false)
   const [startedAt, setStartedAt] = useState<string | null>(null)
@@ -135,7 +128,7 @@ export function PracticeModule({ projectId, plugin, runId, run, onAct }: ModuleP
 
   useEffect(() => {
     let cancelled = false
-    loadLearnerState(projectId, pluginId, runId).then((state) => {
+    loadLearnerState(projectId, runId).then((state) => {
       if (cancelled) return
       setAnswers(state.answers ?? {})
       setSubmitted(Boolean(state.submitted))
@@ -213,7 +206,7 @@ export function PracticeModule({ projectId, plugin, runId, run, onAct }: ModuleP
         extra.startedAt === undefined ? startedAt : extra.startedAt
       const nextSubmittedAt =
         extra.submittedAt === undefined ? submittedAt : extra.submittedAt
-      await updateLearnerState(projectId, pluginId, runId, {
+      await updateLearnerState(projectId, runId, {
         answers: nextAnswers,
         submitted: nextSubmitted,
         score: Object.values(nextAnswers).filter((a) => a.correct === true).length,
@@ -306,7 +299,7 @@ export function PracticeModule({ projectId, plugin, runId, run, onAct }: ModuleP
     setElapsed(0)
     setRemaining(null)
     setAutoSubmitted(false)
-    void updateLearnerState(projectId, pluginId, runId, {
+    void updateLearnerState(projectId, runId, {
       answers: {},
       submitted: false,
       score: 0,

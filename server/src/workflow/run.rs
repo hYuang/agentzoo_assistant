@@ -3,7 +3,7 @@ use serde_json::Value;
 
 use crate::workflow::contribution::ArtifactSpec;
 
-/// The lifecycle of a plugin run (one production instance).
+/// The lifecycle of a workflow run (one production instance).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RunStatus {
@@ -51,12 +51,12 @@ impl ArtifactStatus {
     }
 }
 
-/// One artifact of a run, materialized from the plugin's `ArtifactSpec`.
+/// One artifact of a run, materialized from the app's `ArtifactSpec`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunArtifact {
     pub id: String,
     pub title: String,
-    /// Path relative to the plugin's canonical artifact directory.
+    /// Path relative to the app's canonical artifact directory.
     pub path: String,
     pub status: ArtifactStatus,
     #[serde(default)]
@@ -72,15 +72,12 @@ impl RunArtifact {
     }
 }
 
-/// A production instance of a plugin: the persisted state every later stage
+/// A production instance of the app: the persisted state every later stage
 /// and UI reads.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowRun {
     pub id: String,
-    pub plugin_id: String,
     pub project_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub entry_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_id: Option<String>,
     /// The stage currently executing (or the stage that is waiting at a gate).
@@ -106,21 +103,17 @@ pub struct WorkflowRun {
 }
 
 impl WorkflowRun {
-    /// Create a new run, materializing every artifact declared by the plugin.
+    /// Create a new run, materializing every artifact declared by the app.
     pub fn new(
         id: impl Into<String>,
-        plugin_id: impl Into<String>,
         project_id: impl Into<String>,
-        entry_id: Option<String>,
         input: Value,
         artifacts: &[ArtifactSpec],
     ) -> Self {
         let now = chrono::Utc::now().to_rfc3339();
         Self {
             id: id.into(),
-            plugin_id: plugin_id.into(),
             project_id: project_id.into(),
-            entry_id,
             workflow_id: None,
             stage: None,
             session_id: None,
@@ -188,7 +181,7 @@ mod tests {
                 version: 1,
             },
         ];
-        let mut run = WorkflowRun::new("run-1", "audiobook", "p-1", None, json!({}), &specs);
+        let mut run = WorkflowRun::new("run-1", "p-1", json!({}), &specs);
         assert_eq!(run.artifacts.len(), 2);
         assert_eq!(
             run.artifact("project").unwrap().status,

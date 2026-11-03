@@ -10,7 +10,6 @@ use serde_json::{json, Value};
 use sha2::Sha256;
 use zoo_server::service::ServerState;
 use zoo_server::ApiError;
-use zoo_shared::api::WritePluginArtifactRequest;
 use zoo_shared::message::ProjectId;
 
 use crate::runs;
@@ -157,12 +156,11 @@ pub struct PublishOptions {
 
 impl PublishOptions {
     fn resolve_mode(&self) -> PublishMode {
-        self.mode
-            .unwrap_or(if self.replace {
-                PublishMode::Overwrite
-            } else {
-                PublishMode::Add
-            })
+        self.mode.unwrap_or(if self.replace {
+            PublishMode::Overwrite
+        } else {
+            PublishMode::Add
+        })
     }
 }
 
@@ -422,7 +420,6 @@ async fn refresh_tokens(
 pub async fn login(
     state: &ServerState,
     project_id: &str,
-    plugin_id: &str,
     run_id: &str,
     config: &SynapseConfig,
     request: LoginRequest,
@@ -510,30 +507,25 @@ pub async fn login(
         expires_at: Instant::now() + Duration::from_secs(expires_in),
     });
     if request.remember {
-        let mut record = load_record(state, project_id, plugin_id, run_id)
+        let mut record = load_record(state, project_id, run_id)
             .await?
             .unwrap_or_else(|| json!({}));
         if let Some(obj) = record.as_object_mut() {
             obj.insert("remembered_account".into(), json!(user_account));
             obj.insert("remembered_password".into(), json!(request.password));
         }
-        save_record(state, project_id, plugin_id, run_id, &record).await?;
+        save_record(state, project_id, run_id, &record).await?;
     }
     Ok(json!({ "session": session_summary() }))
 }
 
-pub async fn logout(
-    state: &ServerState,
-    project_id: &str,
-    plugin_id: &str,
-    run_id: &str,
-) -> Value {
+pub async fn logout(state: &ServerState, project_id: &str, run_id: &str) -> Value {
     clear_session();
-    if let Ok(Some(mut record)) = load_record(state, project_id, plugin_id, run_id).await {
+    if let Ok(Some(mut record)) = load_record(state, project_id, run_id).await {
         if let Some(obj) = record.as_object_mut() {
             obj.remove("remembered_account");
             obj.remove("remembered_password");
-            if let Err(error) = save_record(state, project_id, plugin_id, run_id, &record).await {
+            if let Err(error) = save_record(state, project_id, run_id, &record).await {
                 tracing::warn!("clear remembered studio credentials failed: {error}");
             }
         }
@@ -544,12 +536,11 @@ pub async fn logout(
 pub async fn status(
     state: &ServerState,
     project_id: &str,
-    plugin_id: &str,
     run_id: &str,
 ) -> Result<Value, ApiError> {
     let config = SynapseConfig::from_env();
     let session = session_summary();
-    let record = load_record(state, project_id, plugin_id, run_id).await?;
+    let record = load_record(state, project_id, run_id).await?;
     let remembered = record
         .as_ref()
         .and_then(|value| value.get("remembered_account"))
@@ -573,7 +564,6 @@ pub async fn status(
 pub async fn publish(
     state: &ServerState,
     project_id: &str,
-    plugin_id: &str,
     run_id: &str,
     options: PublishOptions,
 ) -> Result<Value, ApiError> {
@@ -583,11 +573,10 @@ pub async fn publish(
             "Synapse Studio is not configured; log in or set SYNAPSE_STUDIO_REFRESH_TOKEN".into(),
         ));
     }
-    let previous = load_record(state, project_id, plugin_id, run_id).await?;
+    let previous = load_record(state, project_id, run_id).await?;
     let mode = options.resolve_mode();
 
-    let content =
-        runs::read_artifact(state, project_id, plugin_id, run_id, QUIZ_ARTIFACT_ID).await?;
+    let content = runs::read_artifact(state, project_id, run_id, QUIZ_ARTIFACT_ID).await?;
     let quiz: QuizFile = serde_json::from_str(&content.content)
         .map_err(|error| ApiError::InvalidRequest(format!("quiz.json is invalid: {error}")))?;
     if quiz.questions.is_empty() {
@@ -595,19 +584,18 @@ pub async fn publish(
             "quiz.json has no questions".into(),
         ));
     }
-    let knowledge_content =
-        runs::read_artifact(state, project_id, plugin_id, run_id, KNOWLEDGE_ARTIFACT_ID)
-            .await
-            .map_err(|_| {
-                ApiError::InvalidRequest(
-                    "knowledge-map.md is missing; run the knowledge stage before publishing".into(),
-                )
-            })?
-            .content;
+    let knowledge_content = runs::read_artifact(state, project_id, run_id, KNOWLEDGE_ARTIFACT_ID)
+        .await
+        .map_err(|_| {
+            ApiError::InvalidRequest(
+                "knowledge-map.md is missing; run the knowledge stage before publishing".into(),
+            )
+        })?
+        .content;
     if knowledge_content.trim().is_empty() {
         return Err(ApiError::InvalidRequest("knowledge-map.md is empty".into()));
     }
-    let run = runs::get_run(state, project_id, plugin_id, run_id).await?;
+    let run = runs::get_run(state, project_id, run_id).await?;
 
     let title = paper_title(&quiz, &run.input);
     let duration = paper_duration(&quiz, &run.input);
@@ -675,7 +663,7 @@ pub async fn publish(
         "papers": papers,
         "knowledge_points": knowledge_points,
     });
-    save_record(state, project_id, plugin_id, run_id, &record).await?;
+    save_record(state, project_id, run_id, &record).await?;
     Ok(json!({ "record": record, "already_synced": false }))
 }
 
@@ -947,15 +935,14 @@ fn difficulty(value: &str) -> i64 {
 async fn load_record(
     state: &ServerState,
     project_id: &str,
-    plugin_id: &str,
     run_id: &str,
 ) -> Result<Option<Value>, ApiError> {
-    match runs::read_artifact(state, project_id, plugin_id, run_id, SYNAPSE_ARTIFACT_ID).await {
+    match runs::read_artifact(state, project_id, run_id, SYNAPSE_ARTIFACT_ID).await {
         Ok(content) => return Ok(serde_json::from_str(&content.content).ok()),
-        Err(ApiError::PluginArtifactNotFound(_)) | Err(ApiError::FileNotFound(_)) => {}
+        Err(ApiError::FileNotFound(_)) => {}
         Err(error) => return Err(error),
     }
-    let Some(path) = sync_file(state, project_id, plugin_id, run_id).await else {
+    let Some(path) = sync_file(state, project_id, run_id).await else {
         return Ok(None);
     };
     match tokio::fs::read_to_string(path).await {
@@ -970,17 +957,15 @@ async fn load_record(
 async fn sync_file(
     state: &ServerState,
     project_id: &str,
-    plugin_id: &str,
     run_id: &str,
 ) -> Option<std::path::PathBuf> {
     let project = state.project(&ProjectId::from(project_id)).await?;
-    Some(runs::run_dir(&project.path, plugin_id, run_id).join("synapse.json"))
+    Some(runs::run_dir(&project.path, run_id).join("synapse.json"))
 }
 
 async fn save_record(
     state: &ServerState,
     project_id: &str,
-    plugin_id: &str,
     run_id: &str,
     record: &Value,
 ) -> Result<(), ApiError> {
@@ -989,10 +974,9 @@ async fn save_record(
     let result = runs::write_artifact(
         state,
         project_id,
-        plugin_id,
         run_id,
         SYNAPSE_ARTIFACT_ID,
-        &WritePluginArtifactRequest {
+        &crate::api::WriteArtifact {
             content: content.clone(),
             encoding: Some("utf-8".into()),
         },
@@ -1000,10 +984,10 @@ async fn save_record(
     .await;
     match result {
         Ok(_) => return Ok(()),
-        Err(ApiError::PluginArtifactNotFound(_)) => {}
+        Err(ApiError::FileNotFound(_)) => {}
         Err(error) => return Err(error),
     }
-    if let Some(path) = sync_file(state, project_id, plugin_id, run_id).await {
+    if let Some(path) = sync_file(state, project_id, run_id).await {
         tokio::fs::write(path, content).await.map_err(|error| {
             ApiError::Internal(format!("write studio sync record failed: {error}"))
         })?;

@@ -6,7 +6,7 @@ const en = {
   newSession: 'New session',
   chatStartTitle: 'Tell the assistant what to practice',
   chatStartHint:
-    'Use the chat on the right. The assistant asks for the topic, knowledge points, syllabus, past papers, question count, and time limit, confirms the setup, then starts the run automatically.',
+    'Start a new round to talk to the assistant. It asks for the topic, knowledge points, syllabus, past papers, question count, and time limit, confirms the setup, then starts the run automatically.',
   chatStartExample:
     'Example: “I want to practice Python decorators, 20 questions in 30 minutes; here is the syllabus and last year’s paper.”',
   newRound: 'Start a new round',
@@ -216,7 +216,7 @@ const zh: Record<AssistantKey, string> = {
   newSession: '新的学习',
   chatStartTitle: '在对话里告诉助手你要刷什么',
   chatStartHint:
-    '使用右侧对话：助手会询问主题、知识点、考纲、往年真题、题量和限时，确认后自动创建并启动刷题流程。',
+    '点击下方按钮开始新一轮复习：助手会询问主题、知识点、考纲、往年真题、题量和限时，确认后自动创建并启动刷题流程。',
   chatStartExample:
     '例如：“我要刷 Python 装饰器，30 分钟 20 题，这是考纲和去年的真题。”',
   newRound: '开始新一轮复习',

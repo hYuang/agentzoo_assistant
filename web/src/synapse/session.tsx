@@ -31,14 +31,12 @@ const StudioSessionContext = createContext<StudioSessionValue | null>(null)
 
 interface StudioSessionProviderProps {
   projectId: string
-  pluginId: string
   runId: string
   children: ReactNode
 }
 
 export function StudioSessionProvider({
   projectId,
-  pluginId,
   runId,
   children,
 }: StudioSessionProviderProps) {
@@ -47,16 +45,21 @@ export function StudioSessionProvider({
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
+    if (!runId) {
+      setStatus(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      setStatus(await getSynapseStatus(projectId, pluginId, runId))
+      setStatus(await getSynapseStatus(projectId, runId))
     } catch (e) {
       setError(String(e))
     } finally {
       setLoading(false)
     }
-  }, [projectId, pluginId, runId])
+  }, [projectId, runId])
 
   useEffect(() => {
     void refresh()
@@ -64,20 +67,22 @@ export function StudioSessionProvider({
 
   const login = useCallback(
     async (request: SynapseLoginRequest) => {
+      if (!runId) return
       setError(null)
-      const result = await loginStudio(projectId, pluginId, runId, request)
+      const result = await loginStudio(projectId, runId, request)
       setStatus((current) =>
         current
           ? { ...current, session: result.session, can_publish: true }
           : current,
       )
     },
-    [projectId, pluginId, runId],
+    [projectId, runId],
   )
 
   const logout = useCallback(async () => {
+    if (!runId) return
     setError(null)
-    await logoutStudio(projectId, pluginId, runId)
+    await logoutStudio(projectId, runId)
     setStatus((current) =>
       current
         ? {
@@ -87,7 +92,7 @@ export function StudioSessionProvider({
           }
         : current,
     )
-  }, [projectId, pluginId, runId])
+  }, [projectId, runId])
 
   const value = useMemo<StudioSessionValue>(
     () => ({

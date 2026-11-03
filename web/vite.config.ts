@@ -13,7 +13,6 @@ export default defineConfig({
       '/events': 'http://127.0.0.1:9211',
       '/user': 'http://127.0.0.1:9211',
       '/agents': 'http://127.0.0.1:9211',
-      '/apps': 'http://127.0.0.1:9211',
       '/packs': 'http://127.0.0.1:9211',
       '/tools': 'http://127.0.0.1:9211',
       '/prompt-layers': 'http://127.0.0.1:9211',

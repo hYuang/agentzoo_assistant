@@ -7,7 +7,6 @@ import styles from '../assistant.module.css'
 
 function MarkdownArtifact({
   projectId,
-  plugin,
   runId,
   run,
   artifactId,
@@ -17,7 +16,6 @@ function MarkdownArtifact({
   const artifact = run.artifacts?.find((item) => item.id === artifactId) ?? null
   const { content, error } = useArtifact(
     projectId,
-    plugin?.id ?? '',
     runId,
     artifactId,
     artifact,

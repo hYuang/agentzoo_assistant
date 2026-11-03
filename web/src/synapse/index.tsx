@@ -9,14 +9,13 @@ import {
 } from './api'
 import styles from '../assistant.module.css'
 
-export function SynapseModule({ projectId, plugin, runId, run }: ModuleProps) {
+export function SynapseModule({ projectId, runId, run }: ModuleProps) {
   const { t } = useAssistantI18n()
   const { status, session, canPublish, refresh } = useStudioSession()
   const [record, setRecord] = useState<SynapseRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const pluginId = plugin?.id ?? ''
   const quizReady = Boolean(
     run.artifacts?.some(
       (artifact) => artifact.id === 'quiz' && artifact.status !== 'empty',
@@ -28,11 +27,11 @@ export function SynapseModule({ projectId, plugin, runId, run }: ModuleProps) {
   }, [status?.record])
 
   const publish = async (mode: SynapsePublishMode) => {
-    if (!pluginId) return
+    if (!runId) return
     setBusy(true)
     setError(null)
     try {
-      const result = await publishToSynapse(projectId, pluginId, runId, mode)
+      const result = await publishToSynapse(projectId, runId, mode)
       setRecord(result.record)
       await refresh()
     } catch (e) {
@@ -57,7 +56,7 @@ export function SynapseModule({ projectId, plugin, runId, run }: ModuleProps) {
             <button
               type="button"
               className={styles.btn}
-              disabled={busy || !quizReady || !canPublish || !pluginId}
+              disabled={busy || !quizReady || !canPublish}
               onClick={() => void publish('overwrite')}
             >
               {busy ? t('synapseSyncing') : t('synapseOverwrite')}
@@ -66,7 +65,7 @@ export function SynapseModule({ projectId, plugin, runId, run }: ModuleProps) {
           <button
             type="button"
             className={styles.primary}
-            disabled={busy || !quizReady || !canPublish || !pluginId}
+            disabled={busy || !quizReady || !canPublish}
             onClick={() => void publish('add')}
           >
             {busy

@@ -1,15 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { ApiError, readPluginArtifact } from '@agentzoo/web-ui'
-import type {
-  PluginArtifactInfo,
-  PluginRunInfo,
-  PluginStageInfo,
-  PluginWorkflowInfo,
-} from '@agentzoo/web-ui'
+import { ApiError } from '@agentzoo/web-ui'
+import type { RunArtifactInfo, RunInfo, StageInfo } from '../types'
+import { readArtifact } from '../api'
 import { useAssistantI18n } from '../i18n'
 import styles from '../assistant.module.css'
 
-export function stageState(stage: PluginStageInfo, run: PluginRunInfo): string {
+export function stageState(stage: StageInfo, run: RunInfo): string {
   if (run.stage === stage.id) {
     return run.status === 'waiting_gate' ? 'waiting' : 'current'
   }
@@ -80,10 +76,9 @@ export function RawView({ title, content }: { title: string; content: string }) 
 
 export function useArtifact(
   projectId: string,
-  pluginId: string,
   runId: string,
   id: string,
-  artifact: PluginArtifactInfo | null,
+  artifact: RunArtifactInfo | null,
 ) {
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -94,7 +89,7 @@ export function useArtifact(
     if (!artifact || artifact.path.endsWith('/') || artifact.path.endsWith('\\')) {
       return
     }
-    readPluginArtifact(projectId, pluginId, runId, id)
+    readArtifact(projectId, runId, id)
       .then((res) => {
         if (!cancelled) setContent(res.encoding === 'utf-8' ? res.content : null)
       })
@@ -102,10 +97,7 @@ export function useArtifact(
         if (cancelled) return
         // A stage has not produced this artifact yet: show the module's empty
         // state instead of a raw "file not found" error.
-        if (
-          e instanceof ApiError &&
-          (e.code === 'file_not_found' || e.code === 'plugin_artifact_not_found')
-        ) {
+        if (e instanceof ApiError && e.code === 'file_not_found') {
           setContent(null)
         } else {
           setError(String(e))
@@ -114,6 +106,6 @@ export function useArtifact(
     return () => {
       cancelled = true
     }
-  }, [projectId, pluginId, runId, id, artifact])
+  }, [projectId, runId, id, artifact])
   return { content, error }
 }

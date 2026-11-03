@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// A persisted artifact type a plugin owns (e.g. `story_bible`, `script`).
+/// A persisted artifact type the app owns (e.g. `materials`, `quiz`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArtifactSpec {
     pub id: String,
     pub title: String,
-    /// Relative path below the plugin's run directory.
+    /// Relative path below the app's run directory.
     #[serde(default)]
     pub path: Option<String>,
     /// JSON schema of the artifact's content, when it is structured.
@@ -28,7 +28,7 @@ pub enum RoleKind {
     Agent,
 }
 
-/// A business role in the plugin's workflow. Roles are not agent names; the
+/// A business role in the app's workflow. Roles are not agent names; the
 /// host resolves them against its capability catalog at run time.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoleSpec {
@@ -85,9 +85,9 @@ pub struct StageSpec {
     /// Optional fan-out expression (e.g. `script.chapters`).
     #[serde(default)]
     pub foreach: Option<String>,
-    /// Stage instruction handed to the executor. Domain-specific; not part of
-    /// the public client catalog.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Stage instruction handed to the executor. Internal; never sent to the
+    /// client catalog.
+    #[serde(default, skip_serializing)]
     pub prompt: Option<String>,
 }
 
@@ -102,47 +102,4 @@ pub struct WorkflowSpec {
     pub gates: Vec<GateSpec>,
     #[serde(default)]
     pub stages: Vec<StageSpec>,
-}
-
-/// A user-facing entry point: the input contract and optional custom UI.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkflowEntry {
-    pub id: String,
-    pub title: String,
-    #[serde(default)]
-    pub description: String,
-    /// JSON schema of the launch input.
-    #[serde(default)]
-    pub input_schema: Value,
-    /// JSON schema of the delivered output.
-    #[serde(default)]
-    pub output_schema: Value,
-    /// UI page under the plugin's `ui/` directory, when the entry has a
-    /// custom launcher instead of the generic form renderer.
-    #[serde(default)]
-    pub ui_page: Option<String>,
-}
-
-/// A page the plugin ships for its own UI (served from `/plugins/{id}/ui/`).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkflowUiPage {
-    pub id: String,
-    pub title: String,
-    pub page: String,
-    /// Where the host may mount it (e.g. `plugin.dashboard`).
-    #[serde(default)]
-    pub slot: String,
-}
-
-/// A preset chat task a plugin offers in the host's conversation UI. The host
-/// renders the task as a suggestion button; clicking it sends `prompt` to the
-/// session's agent. Labels and prompts are localized by the plugin (the host
-/// picks the variant per locale).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChatTaskSpec {
-    pub id: String,
-    pub label_zh: String,
-    pub label_en: String,
-    pub prompt_zh: String,
-    pub prompt_en: String,
 }

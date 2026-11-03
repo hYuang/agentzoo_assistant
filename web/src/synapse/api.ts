@@ -68,8 +68,8 @@ export interface SynapseLoginRequest {
   remember?: boolean
 }
 
-const base = (projectId: string, pluginId: string, runId: string) =>
-  `/projects/${encodeURIComponent(projectId)}/apps/${encodeURIComponent(pluginId)}/runs/${encodeURIComponent(runId)}/synapse`
+const base = (projectId: string, runId: string) =>
+  `/projects/${encodeURIComponent(projectId)}/assistant/runs/${encodeURIComponent(runId)}/synapse`
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init)
@@ -82,19 +82,17 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function getSynapseStatus(
   projectId: string,
-  pluginId: string,
   runId: string,
 ): Promise<SynapseStatus> {
-  return call<SynapseStatus>(base(projectId, pluginId, runId))
+  return call<SynapseStatus>(base(projectId, runId))
 }
 
 export function publishToSynapse(
   projectId: string,
-  pluginId: string,
   runId: string,
   mode: SynapsePublishMode = 'add',
 ): Promise<SynapsePublishResult> {
-  return call<SynapsePublishResult>(`${base(projectId, pluginId, runId)}/publish`, {
+  return call<SynapsePublishResult>(`${base(projectId, runId)}/publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mode }),
@@ -103,12 +101,11 @@ export function publishToSynapse(
 
 export function loginStudio(
   projectId: string,
-  pluginId: string,
   runId: string,
   request: SynapseLoginRequest,
 ): Promise<{ session: SynapseSession }> {
   return call<{ session: SynapseSession }>(
-    `${base(projectId, pluginId, runId)}/login`,
+    `${base(projectId, runId)}/login`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -119,10 +116,9 @@ export function loginStudio(
 
 export function logoutStudio(
   projectId: string,
-  pluginId: string,
   runId: string,
 ): Promise<{ session: null }> {
-  return call<{ session: null }>(`${base(projectId, pluginId, runId)}/logout`, {
+  return call<{ session: null }>(`${base(projectId, runId)}/logout`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: '{}',

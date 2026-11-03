@@ -13,15 +13,10 @@ import {
   Share2,
   type LucideIcon,
 } from 'lucide-react'
-import {
-  approvePluginRun,
-  listPluginRuns,
-  rejectPluginRun,
-  startPluginRun,
-} from '@agentzoo/web-ui'
 import { useChat } from '@agentzoo/web-ui'
-import type { PluginDashboardProps } from './contract'
-import type { PluginRunInfo } from '@agentzoo/web-ui'
+import type { AssistantDashboardProps } from './contract'
+import type { AssistantMeta, RunInfo, WorkflowInfo } from './types'
+import { approveRun, getMeta, listRuns, rejectRun, startRun } from './api'
 import { Badge, stageState } from './modules/shared'
 import { moduleById, moduleForStage, workbenchModules } from './modules/registry'
 import { StudioSessionProvider } from './synapse/session'
@@ -48,10 +43,9 @@ const WORKBENCH_ICONS: Record<string, LucideIcon> = {
   report: FileText,
 }
 
-const LEARNING_WORKFLOW = 'timed_practice_flow'
-
-function isLearningRun(run: PluginRunInfo): boolean {
-  return run.workflow_id === LEARNING_WORKFLOW || run.entry_id === 'learning'
+function latestRun(runs: RunInfo[]): RunInfo | null {
+  if (runs.length === 0) return null
+  return [...runs].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0]
 }
 
 const MODULE_KEYS: Record<
@@ -81,10 +75,11 @@ const MODULE_KEYS: Record<
 // knowledge map, plan, notes, practice, and review. The host shell provides the
 // header, the project switcher, and the chat sidebar; this component owns
 // everything below them.
-export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) {
+export function AssistantDashboard({ projectId }: AssistantDashboardProps) {
   const { t, stageLabel, roleLabel, gateLabel, artifactLabel, statusLabel } = useAssistantI18n()
   const { send: sendChat, busy: chatBusy } = useChat()
-  const [run, setRun] = useState<PluginRunInfo | null>(null)
+  const [meta, setMeta] = useState<AssistantMeta | null>(null)
+  const [run, setRun] = useState<RunInfo | null>(null)
   const [moduleId, setModuleId] = useState('overview')
   const [processOpen, setProcessOpen] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -92,7 +87,6 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
   const [loading, setLoading] = useState(true)
 
   const pid = projectId
-  const pluginId = plugin.id
 
   const loadRun = useCallback(async (project: string) => {
     if (!project) {
@@ -102,18 +96,25 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
     }
     setLoading(true)
     try {
-      const res = await listPluginRuns(project, pluginId)
-      const learningRuns = res.runs.filter(isLearningRun)
-      const latest = learningRuns.length
-        ? [...learningRuns].sort((a, b) =>
-            b.updated_at.localeCompare(a.updated_at),
-          )[0]
-        : null
-      setRun(latest)
+      setRun(latestRun(await listRuns(project)))
     } finally {
       setLoading(false)
     }
-  }, [pluginId])
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    getMeta(pid)
+      .then((next) => {
+        if (!cancelled) setMeta(next)
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(String(e))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [pid])
 
   useEffect(() => {
     loadRun(pid).catch((e: unknown) => setError(String(e)))
@@ -122,13 +123,10 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
   useEffect(() => {
     if (!pid || busy) return
     const id = window.setInterval(() => {
-      listPluginRuns(pid, pluginId)
-        .then((res) => {
-          const learningRuns = res.runs.filter(isLearningRun)
-          if (learningRuns.length === 0) return
-          const latest = [...learningRuns].sort((a, b) =>
-            b.updated_at.localeCompare(a.updated_at),
-          )[0]
+      listRuns(pid)
+        .then((runs) => {
+          const latest = latestRun(runs)
+          if (!latest) return
           if (
             !run ||
             latest.id !== run.id ||
@@ -140,7 +138,7 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
         .catch(() => {})
     }, 4000)
     return () => window.clearInterval(id)
-  }, [pid, pluginId, busy, run])
+  }, [pid, busy, run])
 
   const act = async (kind: 'start' | 'approve') => {
     if (!run) return
@@ -149,8 +147,8 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
     try {
       const next =
         kind === 'start'
-          ? await startPluginRun(pid, pluginId, run.id)
-          : await approvePluginRun(pid, pluginId, run.id)
+          ? await startRun(pid, run.id)
+          : await approveRun(pid, run.id)
       setRun(next)
     } catch (e) {
       setError(String(e))
@@ -164,7 +162,7 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
     setBusy(true)
     setError(null)
     try {
-      setRun(await startPluginRun(pid, pluginId, run.id, { stage: stageId }))
+      setRun(await startRun(pid, run.id, { stage: stageId }))
     } catch (e) {
       setError(String(e))
     } finally {
@@ -177,7 +175,7 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
     setBusy(true)
     setError(null)
     try {
-      setRun(await rejectPluginRun(pid, pluginId, run.id, { reason }))
+      setRun(await rejectRun(pid, run.id, reason))
     } catch (e) {
       setError(String(e))
     } finally {
@@ -189,51 +187,45 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
     setModuleId(id)
   }
 
-  if (loading) {
+  if (loading || !meta) {
     return (
       <main className={styles.workspace}>
         <div className={styles.empty}>
           <h2>{t('preparing')}</h2>
-        </div>
-      </main>
-    )
-  }
-
-  if (!run) {
-    return (
-      <main className={styles.workspace}>
-        <div className={styles.empty}>
-          <h2>{t('chatStartTitle')}</h2>
-          <p className={styles.muted}>{t('chatStartHint')}</p>
-          <p className={styles.muted}>{t('chatStartExample')}</p>
           {error && <div className={styles.error}>{error}</div>}
-          <button
-            type="button"
-            className={styles.primary}
-            disabled={chatBusy}
-            onClick={() => void sendChat(t('newRoundPrompt'))}
-          >
-            {t('newRound')}
-          </button>
         </div>
       </main>
     )
   }
 
-  const workflow = plugin.workflows?.[0] ?? null
-  const completed = new Set(run.completed_stages ?? [])
-  const total = workflow?.stages?.length ?? 0
+  const workflow: WorkflowInfo = meta.workflow
+  const activeRun: RunInfo =
+    run ?? {
+      id: '',
+      project_id: pid,
+      workflow_id: workflow.id,
+      stage: null,
+      session_id: null,
+      completed_stages: [],
+      status: 'created',
+      input: {},
+      created_at: '',
+      updated_at: '',
+      artifacts: [],
+    }
+  const completed = new Set(activeRun.completed_stages ?? [])
+  const total = workflow.stages.length
   const done = completed.size
-  const currentStage = workflow?.stages?.find((stage) => stage.id === run.stage) ?? null
+  const currentStage =
+    workflow.stages.find((stage) => stage.id === activeRun.stage) ?? null
   const module = moduleById(moduleId)
 
   const props = {
     projectId: pid,
-    runId: run.id,
+    runId: activeRun.id,
     moduleId: module.id,
-    plugin,
     workflow,
-    run,
+    run: activeRun,
     onAct: act,
     onRunStage: runStage,
     onReject: reject,
@@ -241,7 +233,7 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
   }
 
   return (
-    <StudioSessionProvider projectId={pid} pluginId={pluginId} runId={run.id}>
+    <StudioSessionProvider projectId={pid} runId={activeRun.id}>
       <div className={styles.dashboard}>
         <main className={styles.workspaceShell}>
           <aside className={styles.railPanel}>
@@ -269,7 +261,7 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
                 hidden={!processOpen}
               >
                 {(workflow?.stages ?? []).map((stage) => {
-                  const state = stageState(stage, run)
+                  const state = stageState(stage, activeRun)
                   const stageModule = moduleForStage(stage.id)
                   const active = module.id === stageModule.id
                   return (
@@ -336,7 +328,7 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
 
           <section className={styles.workMain}>
             {error && <div className={styles.error}>{error}</div>}
-            {run.error && <div className={styles.error}>{run.error}</div>}
+            {run?.error && <div className={styles.error}>{run?.error}</div>}
 
             <div className={styles.productionHead}>
               <div>
@@ -344,8 +336,9 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
                   <h1>{t('brand')}</h1>
                 </div>
                 <div className={styles.sub}>
-                  {done}/{total} {t('flowStages')} · {total ? Math.round((done / total) * 100) : 0}% ·{' '}
-                  {new Date(run.updated_at).toLocaleString()}
+                  {done}/{total} {t('flowStages')} ·{' '}
+                  {total ? Math.round((done / total) * 100) : 0}%
+                  {run ? ` · ${new Date(run.updated_at).toLocaleString()}` : null}
                 </div>
               </div>
               <div className={styles.actions}>
@@ -357,8 +350,9 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
                 >
                   {t('newRound')}
                 </button>
-                <Badge status={run.status} />
-                {['created', 'failed', 'cancelled'].includes(run.status) && (
+                <Badge status={activeRun.status} />
+                {run &&
+                  ['created', 'failed', 'cancelled'].includes(run.status) && (
                   <button
                     type="button"
                     className={styles.primary}
@@ -368,7 +362,7 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
                     {t('start')}
                   </button>
                 )}
-                {run.status === 'waiting_gate' && (
+                {run?.status === 'waiting_gate' && (
                   <button
                     type="button"
                     className={styles.primary}
@@ -384,7 +378,7 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
                     className={styles.primary}
                     onClick={() => openModule(moduleForStage(currentStage.id).id)}
                   >
-                    {run.status === 'waiting_gate' ? t('review') : t('continue')}
+                    {run?.status === 'waiting_gate' ? t('review') : t('continue')}
                   </button>
                 )}
               </div>
@@ -392,7 +386,7 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
 
             <div className={styles.stagebar}>
               {(workflow?.stages ?? []).map((stage) => {
-                const state = stageState(stage, run)
+                const state = stageState(stage, activeRun)
                 return (
                   <span
                     key={stage.id}
@@ -411,14 +405,30 @@ export function AssistantDashboard({ plugin, projectId }: PluginDashboardProps) 
               })}
             </div>
 
-            <module.component {...props} />
+            {run ? (
+              <module.component {...props} />
+            ) : (
+              <div className={styles.empty}>
+                <h2>{t('chatStartTitle')}</h2>
+                <p className={styles.muted}>{t('chatStartHint')}</p>
+                <p className={styles.muted}>{t('chatStartExample')}</p>
+                <button
+                  type="button"
+                  className={styles.primary}
+                  disabled={chatBusy}
+                  onClick={() => void sendChat(t('newRoundPrompt'))}
+                >
+                  {t('newRound')}
+                </button>
+              </div>
+            )}
           </section>
 
           <aside className={styles.inspector}>
             <div className={styles.inspectorTitle}>{t('processModules')}</div>
             <div className={styles.stageFlow}>
               {(workflow?.stages ?? []).map((stage, index, stages) => {
-                const state = stageState(stage, run)
+                const state = stageState(stage, activeRun)
                 const stageModule = moduleForStage(stage.id)
                 const active = module.id === stageModule.id
                 const Icon = STAGE_ICONS[stage.id] ?? FileText
