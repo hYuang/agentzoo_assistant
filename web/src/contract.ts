@@ -1,7 +1,3 @@
-﻿import type { PluginInfo } from '@agentzoo/web-ui'
-
-export interface PluginDashboardProps {
-  plugin: PluginInfo
+﻿export interface AssistantDashboardProps {
   projectId: string
-  onProjectChange: (id: string) => void
 }

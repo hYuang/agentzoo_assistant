@@ -1,107 +1,75 @@
 //! Workflow run persistence.
 //!
-//! A run is one execution of the app workflow. The host keeps
-//! runtime state (under `.zoo_agent`) separate from canonical artifacts so the
-//! latter can be committed to Git:
+//! A run is one execution of the app workflow. Runtime state stays under
+//! `.zoo_agent` while canonical artifacts live in the project so they can be
+//! committed to Git:
 //!
 //! ```text
-//! <project>/.zoo_agent/plugins/<plugin>/runs/<run>/run.json   runtime state
-//! <project>/.zoo_agent/plugins/<plugin>/assets/               private material
-//! <project>/<plugin>/<artifact path>                          tracked artifacts
+//! <project>/.zoo_agent/assistant/runs/<run>/run.json   runtime state
+//! <project>/.zoo_agent/assistant/uploads/              private material
+//! <project>/assistant/<artifact path>                  tracked artifacts
 //! ```
-//!
-//! Plugins declare artifact ids and paths; the host creates the run, stores
-//! artifact content, and exposes the catalog to the clients. Domain semantics
-//! stay in the plugin.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::api::{
+    ArtifactContent, CreateDirectory, CreateDirectoryResponse, CreateRun, RejectRun, Run,
+    RunArtifact as RunArtifactInfo, Runs, StartRun, UploadFile, UploadFileResponse, WriteArtifact,
+};
 use crate::workflow::{
-    is_workflow_id, ArtifactStatus, WorkflowApp, WorkflowRun, RoleKind, RunArtifact, RunStatus,
-    StageSpec, WorkflowSpec,
+    ArtifactStatus, RoleKind, RunArtifact, RunStatus, StageSpec, WorkflowApp, WorkflowRun,
+    WorkflowSpec,
 };
 use axum::http::HeaderMap;
 use axum::response::Response;
 use base64::Engine;
 use uuid::Uuid;
-use zoo_shared::api::{
-    ApiRequest, CreatePluginDirectoryRequest, CreatePluginDirectoryResponse,
-    CreatePluginRunRequest, CreateSessionRequest, ModelSelection, PluginArtifactContent,
-    PluginArtifactInfo, PluginRunInfo, PluginRunsResponse, RejectPluginRunRequest,
-    SendMessageRequest, StartPluginRunRequest, UploadFileRequest, UploadFileResponse,
-    WritePluginArtifactRequest,
-};
+use zoo_shared::api::{CreateSessionRequest, ModelSelection, SendMessageRequest};
 use zoo_shared::message::ProjectId;
 
 use zoo_server::service::packs::safe_join;
 use zoo_server::service::{files, sessions, ServerState};
 use zoo_server::ApiError;
 
-/// The runtime state directory for a project/plugin/run.
-pub fn run_dir(project_root: &Path, plugin_id: &str, run_id: &str) -> PathBuf {
+/// The runtime state directory for one run.
+pub fn run_dir(project_root: &Path, run_id: &str) -> PathBuf {
     project_root
         .join(".zoo_agent")
-        .join("plugins")
-        .join(plugin_id)
+        .join("assistant")
         .join("runs")
         .join(run_id)
 }
 
-/// The canonical, Git-trackable artifact directory. One plugin owns one
-/// workspace per project; runtime metadata stays in [`run_dir`].
-pub fn artifact_dir(project_root: &Path, plugin_id: &str) -> PathBuf {
-    project_root.join(plugin_id)
+/// The canonical, Git-trackable artifact directory: `<project>/assistant/`.
+pub fn artifact_dir(project_root: &Path) -> PathBuf {
+    project_root.join("assistant")
 }
 
-/// The plugin's private material root, kept under `.zoo_agent` alongside the
-/// run state so the framework and plugins share one directory convention:
-/// `<project>/.zoo_agent/plugins/<id>/assets/`.
-pub fn plugin_assets_dir(project_root: &Path, plugin_id: &str) -> PathBuf {
+/// The app's upload root: `<project>/.zoo_agent/assistant/uploads/`.
+pub fn uploads_dir(project_root: &Path) -> PathBuf {
     project_root
         .join(".zoo_agent")
-        .join("plugins")
-        .join(plugin_id)
-        .join("assets")
+        .join("assistant")
+        .join("uploads")
 }
 
-/// The plugin's upload root: `<project>/.zoo_agent/plugins/<id>/assets/uploads/`.
-pub fn plugin_uploads_dir(project_root: &Path, plugin_id: &str) -> PathBuf {
-    plugin_assets_dir(project_root, plugin_id).join("uploads")
-}
-
-/// Create a run from a plugin entry. The run starts empty; stages write its
-/// artifacts through [`write_artifact`].
-pub async fn create_run(
-    state: &ServerState,
-    pid: &str,
-    plugin_id: &str,
-    body: &CreatePluginRunRequest,
-) -> Result<PluginRunInfo, ApiError> {
-    if !is_workflow_id(plugin_id) {
-        return Err(ApiError::InvalidRequest(format!(
-            "invalid plugin id: {plugin_id}"
-        )));
-    }
-    body.validate()?;
+/// Create a run. The run starts empty; stages write its artifacts through
+/// [`write_artifact`].
+pub async fn create_run(state: &ServerState, pid: &str, body: &CreateRun) -> Result<Run, ApiError> {
     let project = state
         .project(&ProjectId::from(pid))
         .await
         .ok_or(ApiError::ProjectNotFound)?;
-    let plugin = plugin(state, plugin_id).await?;
-    let entry_id = resolve_entry(plugin.as_ref(), body.entry_id.as_deref())?;
+    let app = crate::AssistantApp;
+    let artifacts = app.artifact_types();
     let mut run = WorkflowRun::new(
         Uuid::new_v4().to_string(),
-        plugin_id,
         pid,
-        entry_id,
         body.input.clone(),
-        &plugin.artifact_types(),
+        &artifacts,
     );
-    run.workflow_id = plugin
-        .workflows()
-        .first()
-        .map(|workflow| workflow.id.clone());
+    run.workflow_id = app.workflows().first().map(|workflow| workflow.id.clone());
     if run.session_id.is_none() {
         let created = sessions::create_session(
             state,
@@ -113,55 +81,44 @@ pub async fn create_run(
         .await?;
         run.session_id = Some(created.session_id);
     }
-    let dir = run_dir(&project.path, plugin_id, &run.id);
-    let artifacts = artifact_dir(&project.path, plugin_id);
+    let dir = run_dir(&project.path, &run.id);
+    let artifact_root = artifact_dir(&project.path);
     tokio::fs::create_dir_all(&dir).await.map_err(internal)?;
-    tokio::fs::create_dir_all(&artifacts)
+    tokio::fs::create_dir_all(&artifact_root)
         .await
         .map_err(internal)?;
     // A new run starts from a clean slate: drop any artifacts left behind by
     // a previous run so they are not mistaken for this run's output.
-    for spec in plugin.artifact_types() {
+    for spec in &artifacts {
         if let Some(rel) = spec.path.as_deref().filter(|p| !p.is_empty()) {
-            let path = artifacts.join(rel);
+            let path = artifact_root.join(rel);
             if path.is_file() {
                 let _ = tokio::fs::remove_file(&path).await;
             }
         }
     }
     save_run(&dir, &run).await?;
-    refresh_artifacts(&mut run, &artifacts).await;
+    refresh_artifacts(&mut run, &artifact_root).await;
     save_run(&dir, &run).await?;
-    Ok(to_info(run))
+    Ok(to_run(run))
 }
 
-/// List a plugin's runs in one project, most recently updated first.
-pub async fn list_runs(
-    state: &ServerState,
-    pid: &str,
-    plugin_id: &str,
-) -> Result<PluginRunsResponse, ApiError> {
-    if !is_workflow_id(plugin_id) {
-        return Err(ApiError::InvalidRequest(format!(
-            "invalid plugin id: {plugin_id}"
-        )));
-    }
+/// List the app's runs in one project, most recently updated first.
+pub async fn list_runs(state: &ServerState, pid: &str) -> Result<Runs, ApiError> {
     let project = state
         .project(&ProjectId::from(pid))
         .await
         .ok_or(ApiError::ProjectNotFound)?;
-    let _ = plugin(state, plugin_id).await?;
     let runs_dir = project
         .path
         .join(".zoo_agent")
-        .join("plugins")
-        .join(plugin_id)
+        .join("assistant")
         .join("runs");
     let mut runs = Vec::new();
     let mut entries = match tokio::fs::read_dir(&runs_dir).await {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(PluginRunsResponse { runs });
+            return Ok(Runs { runs });
         }
         Err(error) => return Err(internal(error)),
     };
@@ -171,53 +128,47 @@ pub async fn list_runs(
         }
         let id = entry.file_name().to_string_lossy().to_string();
         if let Ok(run) = load_run(&entry.path(), &id).await {
-            runs.push(to_info(run));
+            runs.push(to_run(run));
         }
     }
     runs.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-    Ok(PluginRunsResponse { runs })
+    Ok(Runs { runs })
 }
 
 /// Load one run.
-pub async fn get_run(
-    state: &ServerState,
-    pid: &str,
-    plugin_id: &str,
-    run_id: &str,
-) -> Result<PluginRunInfo, ApiError> {
-    let (_, _, run) = load_for_project(state, pid, plugin_id, run_id).await?;
-    Ok(to_info(run))
+pub async fn get_run(state: &ServerState, pid: &str, run_id: &str) -> Result<Run, ApiError> {
+    let (_, _, run) = load_for_project(state, pid, run_id).await?;
+    Ok(to_run(run))
 }
 
 /// Read one artifact. Text is returned as UTF-8; binary is base64-encoded.
 pub async fn read_artifact(
     state: &ServerState,
     pid: &str,
-    plugin_id: &str,
     run_id: &str,
     artifact_id: &str,
-) -> Result<PluginArtifactContent, ApiError> {
-    let (project, _, run) = load_for_project(state, pid, plugin_id, run_id).await?;
-    let artifacts = artifact_dir(&project.path, plugin_id);
+) -> Result<ArtifactContent, ApiError> {
+    let (project, _, run) = load_for_project(state, pid, run_id).await?;
+    let artifact_root = artifact_dir(&project.path);
     let artifact = run
         .artifact(artifact_id)
-        .ok_or_else(|| ApiError::PluginArtifactNotFound(artifact_id.to_string()))?;
+        .ok_or_else(|| ApiError::FileNotFound(artifact_id.to_string()))?;
     if artifact.is_dir() {
         return Err(ApiError::InvalidRequest(format!(
             "artifact {artifact_id} is a directory"
         )));
     }
-    let path = safe_join(&artifacts, &artifact.path)
+    let path = safe_join(&artifact_root, &artifact.path)
         .ok_or_else(|| ApiError::InvalidRequest("unsafe artifact path".into()))?;
     let bytes = tokio::fs::read(&path)
         .await
         .map_err(|_| ApiError::FileNotFound(artifact.path.clone()))?;
     match String::from_utf8(bytes.clone()) {
-        Ok(content) => Ok(PluginArtifactContent {
+        Ok(content) => Ok(ArtifactContent {
             content,
             encoding: "utf-8".into(),
         }),
-        Err(_) => Ok(PluginArtifactContent {
+        Err(_) => Ok(ArtifactContent {
             content: base64::engine::general_purpose::STANDARD.encode(bytes),
             encoding: "base64".into(),
         }),
@@ -228,24 +179,22 @@ pub async fn read_artifact(
 pub async fn write_artifact(
     state: &ServerState,
     pid: &str,
-    plugin_id: &str,
     run_id: &str,
     artifact_id: &str,
-    body: &WritePluginArtifactRequest,
-) -> Result<PluginRunInfo, ApiError> {
-    body.validate()?;
-    let (project, dir, mut run) = load_for_project(state, pid, plugin_id, run_id).await?;
-    let artifacts = artifact_dir(&project.path, plugin_id);
+    body: &WriteArtifact,
+) -> Result<Run, ApiError> {
+    let (project, dir, mut run) = load_for_project(state, pid, run_id).await?;
+    let artifact_root = artifact_dir(&project.path);
     let artifact = run
         .artifact(artifact_id)
         .cloned()
-        .ok_or_else(|| ApiError::PluginArtifactNotFound(artifact_id.to_string()))?;
+        .ok_or_else(|| ApiError::FileNotFound(artifact_id.to_string()))?;
     if artifact.is_dir() {
         return Err(ApiError::InvalidRequest(format!(
             "artifact {artifact_id} is a directory"
         )));
     }
-    let path = safe_join(&artifacts, &artifact.path)
+    let path = safe_join(&artifact_root, &artifact.path)
         .ok_or_else(|| ApiError::InvalidRequest("unsafe artifact path".into()))?;
     let bytes = match body.encoding.as_deref() {
         None | Some("utf-8") | Some("utf8") => body.content.as_bytes().to_vec(),
@@ -264,20 +213,23 @@ pub async fn write_artifact(
     tokio::fs::write(&path, &bytes).await.map_err(internal)?;
     run.touch_artifact(artifact_id, bytes.len() as u64);
     save_run(&dir, &run).await?;
-    Ok(to_info(run))
+    Ok(to_run(run))
 }
 
-/// Upload a user-provided source file into the plugin's private material root
-/// at `<project>/.zoo_agent/plugins/<id>/assets/uploads/`.
+/// Upload a user-provided source file into the app's upload root
+/// at `<project>/.zoo_agent/assistant/uploads/`.
 pub async fn upload_file(
     state: &ServerState,
     pid: &str,
-    plugin_id: &str,
     run_id: &str,
-    body: &UploadFileRequest,
+    body: &UploadFile,
 ) -> Result<UploadFileResponse, ApiError> {
-    body.validate()?;
-    let (project, _, _) = load_for_project(state, pid, plugin_id, run_id).await?;
+    if body.name.trim().is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "file name must not be empty".into(),
+        ));
+    }
+    let (project, _, _) = load_for_project(state, pid, run_id).await?;
     let raw = body
         .data
         .split_once("base64,")
@@ -297,7 +249,7 @@ pub async fn upload_file(
         .map(sanitize_relative_dir)
         .transpose()?
         .unwrap_or_default();
-    let dir = plugin_uploads_dir(&project.path, plugin_id).join(&relative_dir);
+    let dir = uploads_dir(&project.path).join(&relative_dir);
     tokio::fs::create_dir_all(&dir)
         .await
         .map_err(|error| ApiError::Internal(format!("failed to create upload dir: {error}")))?;
@@ -317,26 +269,27 @@ pub async fn upload_file(
     })
 }
 
-/// Create one directory under the plugin's upload root. Empty and parent
-/// (`..`) segments are rejected so the path cannot escape `assets/uploads/`.
+/// Create one directory under the app's upload root. Empty and parent (`..`)
+/// segments are rejected so the path cannot escape `assets/uploads/`.
 pub async fn create_directory(
     state: &ServerState,
     pid: &str,
-    plugin_id: &str,
     run_id: &str,
-    body: &CreatePluginDirectoryRequest,
-) -> Result<CreatePluginDirectoryResponse, ApiError> {
-    body.validate()?;
-    let (project, _, _) = load_for_project(state, pid, plugin_id, run_id).await?;
+    body: &CreateDirectory,
+) -> Result<CreateDirectoryResponse, ApiError> {
+    if body.path.trim().is_empty() {
+        return Err(ApiError::InvalidRequest("empty directory path".into()));
+    }
+    let (project, _, _) = load_for_project(state, pid, run_id).await?;
     let relative = sanitize_relative_dir(&body.path)?;
     if relative.as_os_str().is_empty() {
         return Err(ApiError::InvalidRequest("empty directory path".into()));
     }
-    let dir = plugin_uploads_dir(&project.path, plugin_id).join(&relative);
+    let dir = uploads_dir(&project.path).join(&relative);
     tokio::fs::create_dir_all(&dir)
         .await
         .map_err(|error| ApiError::Internal(format!("failed to create directory: {error}")))?;
-    Ok(CreatePluginDirectoryResponse {
+    Ok(CreateDirectoryResponse {
         path: format!(
             "assets/uploads/{}/",
             relative.to_string_lossy().replace('\\', "/")
@@ -363,15 +316,14 @@ fn sanitize_relative_dir(value: &str) -> Result<PathBuf, ApiError> {
 pub async fn delete_upload(
     state: &ServerState,
     pid: &str,
-    plugin_id: &str,
     run_id: &str,
     rel: &str,
 ) -> Result<(), ApiError> {
     if rel.trim().is_empty() {
         return Err(ApiError::InvalidRequest("empty upload path".into()));
     }
-    let (project, _, _) = load_for_project(state, pid, plugin_id, run_id).await?;
-    let base = plugin_uploads_dir(&project.path, plugin_id);
+    let (project, _, _) = load_for_project(state, pid, run_id).await?;
+    let base = uploads_dir(&project.path);
     let path = files::resolve_rel(&base, rel)?;
     delete_upload_path(&path).await?;
     Ok(())
@@ -393,13 +345,12 @@ async fn delete_upload_path(path: &Path) -> Result<(), ApiError> {
 pub async fn serve_upload(
     state: &ServerState,
     pid: &str,
-    plugin_id: &str,
     run_id: &str,
     rel: &str,
     headers: &HeaderMap,
 ) -> Result<Response, ApiError> {
-    let (project, _, _) = load_for_project(state, pid, plugin_id, run_id).await?;
-    let base = plugin_uploads_dir(&project.path, plugin_id);
+    let (project, _, _) = load_for_project(state, pid, run_id).await?;
+    let base = uploads_dir(&project.path);
     let file = files::resolve_rel(&base, rel)?;
     let ext = file
         .extension()
@@ -414,13 +365,11 @@ pub async fn serve_upload(
 pub async fn start_run(
     state: &Arc<ServerState>,
     pid: &str,
-    plugin_id: &str,
     run_id: &str,
-    body: &StartPluginRunRequest,
-) -> Result<PluginRunInfo, ApiError> {
-    body.validate()?;
-    let (project, dir, mut run) = load_for_project(state, pid, plugin_id, run_id).await?;
-    let artifacts = artifact_dir(&project.path, plugin_id);
+    body: &StartRun,
+) -> Result<Run, ApiError> {
+    let (project, dir, mut run) = load_for_project(state, pid, run_id).await?;
+    let artifacts = artifact_dir(&project.path);
     if matches!(run.status, RunStatus::Running | RunStatus::WaitingGate) {
         return Err(ApiError::InvalidRequest(format!(
             "run {} cannot start from {}",
@@ -433,8 +382,7 @@ pub async fn start_run(
             "run is completed; name a stage to re-run it".into(),
         ));
     }
-    let plugin = plugin(state, plugin_id).await?;
-    let workflow = select_workflow(plugin.as_ref(), &run)?;
+    let workflow = select_workflow(&run)?;
     if let Some(stage_id) = body.stage.as_deref() {
         if !workflow.stages.iter().any(|stage| stage.id == stage_id) {
             return Err(ApiError::InvalidRequest(format!(
@@ -469,7 +417,7 @@ pub async fn start_run(
         body.model.clone(),
         body.stage.clone(),
     );
-    Ok(to_info(run))
+    Ok(to_run(run))
 }
 
 /// Approve the stage waiting at a human gate. It becomes completed, but the
@@ -477,12 +425,10 @@ pub async fn start_run(
 pub async fn approve_run(
     state: &Arc<ServerState>,
     pid: &str,
-    plugin_id: &str,
     run_id: &str,
-    body: &StartPluginRunRequest,
-) -> Result<PluginRunInfo, ApiError> {
-    body.validate()?;
-    let (_, dir, mut run) = load_for_project(state, pid, plugin_id, run_id).await?;
+    _body: &StartRun,
+) -> Result<Run, ApiError> {
+    let (_, dir, mut run) = load_for_project(state, pid, run_id).await?;
     if run.status != RunStatus::WaitingGate {
         return Err(ApiError::InvalidRequest(format!(
             "run {} is not waiting for approval",
@@ -502,7 +448,7 @@ pub async fn approve_run(
     run.review_notes = None;
     run.updated_at = now();
     save_run(&dir, &run).await?;
-    Ok(to_info(run))
+    Ok(to_run(run))
 }
 
 /// Reject the current stage review. The stage stays incomplete so the next
@@ -510,12 +456,10 @@ pub async fn approve_run(
 pub async fn reject_run(
     state: &ServerState,
     pid: &str,
-    plugin_id: &str,
     run_id: &str,
-    body: &RejectPluginRunRequest,
-) -> Result<PluginRunInfo, ApiError> {
-    body.validate()?;
-    let (_, dir, mut run) = load_for_project(state, pid, plugin_id, run_id).await?;
+    body: &RejectRun,
+) -> Result<Run, ApiError> {
+    let (_, dir, mut run) = load_for_project(state, pid, run_id).await?;
     if run.status != RunStatus::WaitingGate {
         return Err(ApiError::InvalidRequest(format!(
             "run {} is not waiting for review",
@@ -528,7 +472,7 @@ pub async fn reject_run(
     run.review_notes = Some(body.reason.trim().to_string());
     run.updated_at = now();
     save_run(&dir, &run).await?;
-    Ok(to_info(run))
+    Ok(to_run(run))
 }
 
 fn spawn_runner(
@@ -554,10 +498,9 @@ fn spawn_runner(
         .await
         {
             tracing::warn!(
-                plugin = %initial.plugin_id,
                 run = %initial.id,
                 error = %error,
-                "plugin stage failed"
+                "workflow stage failed"
             );
             mark_failed(&dir, &initial.id, &error).await;
         }
@@ -705,7 +648,6 @@ fn stage_prompt(
     state_dir: &Path,
     artifact_dir: &Path,
 ) -> String {
-    let plugin_id = &run.plugin_id;
     let project_root = artifact_dir.parent().unwrap_or(artifact_dir);
     let artifact_root = relative_path(project_root, artifact_dir);
     let state_root = relative_path(project_root, state_dir);
@@ -731,7 +673,7 @@ fn stage_prompt(
         .collect::<Vec<_>>()
         .join("\n");
     format!(
-        "你正在执行 `{plugin_id}` 插件的生产阶段「{name}」({id})。\n\n\
+        "你正在执行学习助手的生产阶段「{name}」({id})。\n\n\
 工件目录（相对项目根，Git 跟踪）：`{artifact_root}/`\n\
 运行状态目录（不要写入工件）：`{state_root}/`\n\n\
 本次运行输入：\n{input}\n\n\
@@ -743,7 +685,6 @@ fn stage_prompt(
 - 使用现有 agent 能力完成任务；需要委派时使用 tasks/dispatch，由协调者自动选择执行者。\n\
 - 不要跳过门禁，不要修改已锁定的工件。\n\
 - 完成后回复简短总结，并确认输出文件存在。\n",
-        plugin_id = plugin_id,
         name = stage.name,
         id = stage.id,
         artifact_root = artifact_root,
@@ -775,65 +716,34 @@ async fn mark_failed(dir: &Path, run_id: &str, message: &str) {
     }
 }
 
-fn select_workflow(plugin: &dyn WorkflowApp, run: &WorkflowRun) -> Result<WorkflowSpec, ApiError> {
-    let workflows = plugin.workflows();
+fn select_workflow(run: &WorkflowRun) -> Result<WorkflowSpec, ApiError> {
+    let workflows = crate::AssistantApp.workflows();
     let workflow = run
         .workflow_id
         .as_ref()
         .and_then(|id| workflows.iter().find(|workflow| &workflow.id == id))
         .cloned()
         .or_else(|| workflows.first().cloned());
-    workflow.ok_or_else(|| {
-        ApiError::InvalidRequest(format!("plugin {} has no workflow", plugin.manifest().id))
-    })
+    workflow.ok_or_else(|| ApiError::InvalidRequest("the assistant has no workflow".into()))
 }
 
 fn now() -> String {
     chrono::Utc::now().to_rfc3339()
 }
 
-async fn plugin(_state: &ServerState, id: &str) -> Result<Arc<dyn WorkflowApp>, ApiError> {
-    if id == "assistant" {
-        Ok(Arc::new(crate::AssistantApp))
-    } else {
-        Err(ApiError::PluginNotFound(id.to_string()))
-    }
-}
-
-fn resolve_entry(plugin: &dyn WorkflowApp, requested: Option<&str>) -> Result<Option<String>, ApiError> {
-    let entries = plugin.entries();
-    match requested.map(str::trim).filter(|id| !id.is_empty()) {
-        Some(id) => {
-            if entries.iter().any(|entry| entry.id == id) {
-                Ok(Some(id.to_string()))
-            } else {
-                Err(ApiError::InvalidRequest(format!(
-                    "unknown plugin entry: {id}"
-                )))
-            }
-        }
-        None => Ok(entries.first().map(|entry| entry.id.clone())),
-    }
-}
-
 async fn load_for_project(
     state: &ServerState,
     pid: &str,
-    plugin_id: &str,
     run_id: &str,
 ) -> Result<(zoo_store::Project, PathBuf, WorkflowRun), ApiError> {
-    if !is_workflow_id(plugin_id) || !is_workflow_id(run_id) {
-        return Err(ApiError::InvalidRequest("invalid plugin or run id".into()));
-    }
-    let plugin = plugin(state, plugin_id).await?;
     let project = state
         .project(&ProjectId::from(pid))
         .await
         .ok_or(ApiError::ProjectNotFound)?;
-    let dir = run_dir(&project.path, plugin_id, run_id);
+    let dir = run_dir(&project.path, run_id);
     let mut run = load_run(&dir, run_id).await?;
     let mut changed = false;
-    for spec in plugin.artifact_types() {
+    for spec in crate::AssistantApp.artifact_types() {
         if run.artifact(&spec.id).is_some() {
             continue;
         }
@@ -857,7 +767,7 @@ async fn load_run(dir: &Path, run_id: &str) -> Result<WorkflowRun, ApiError> {
     let path = dir.join("run.json");
     let text = tokio::fs::read_to_string(&path)
         .await
-        .map_err(|_| ApiError::PluginRunNotFound)?;
+        .map_err(|_| ApiError::FileNotFound(format!("run {run_id}")))?;
     serde_json::from_str(&text)
         .map_err(|error| ApiError::Internal(format!("invalid run {run_id}: {error}")))
 }
@@ -888,12 +798,10 @@ async fn save_run(dir: &Path, run: &WorkflowRun) -> Result<(), ApiError> {
         .map_err(internal)
 }
 
-fn to_info(run: WorkflowRun) -> PluginRunInfo {
-    PluginRunInfo {
+fn to_run(run: WorkflowRun) -> Run {
+    Run {
         id: run.id,
-        plugin_id: run.plugin_id,
         project_id: run.project_id,
-        entry_id: run.entry_id,
         workflow_id: run.workflow_id,
         stage: run.stage,
         session_id: run.session_id,
@@ -907,7 +815,7 @@ fn to_info(run: WorkflowRun) -> PluginRunInfo {
         artifacts: run
             .artifacts
             .into_iter()
-            .map(|artifact| PluginArtifactInfo {
+            .map(|artifact| RunArtifactInfo {
                 id: artifact.id,
                 title: artifact.title,
                 path: artifact.path,
@@ -997,9 +905,9 @@ mod tests {
     #[test]
     fn artifact_workspace_stays_out_of_runtime_state() {
         let root = Path::new("project");
-        let artifacts = artifact_dir(root, "audiobook");
-        assert_eq!(artifacts, root.join("audiobook"));
-        assert_ne!(artifacts, run_dir(root, "audiobook", "run"));
+        let artifacts = artifact_dir(root);
+        assert_eq!(artifacts, root.join("assistant"));
+        assert_ne!(artifacts, run_dir(root, "run"));
     }
 
     #[test]
@@ -1025,7 +933,7 @@ mod tests {
     #[test]
     fn checks_stage_outputs() {
         let dir = std::env::temp_dir().join(format!(
-            "zoo-plugin-runs-{}-{}",
+            "zoo-assistant-runs-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -1040,14 +948,7 @@ mod tests {
             schema: None,
             version: 1,
         }];
-        let run = WorkflowRun::new(
-            "run",
-            "plugin",
-            "project",
-            None,
-            serde_json::json!({}),
-            &specs,
-        );
+        let run = WorkflowRun::new("run", "project", serde_json::json!({}), &specs);
         let stage = stage("a", &[], &["artifact"]);
         assert!(check_outputs(&run, &stage, &dir).is_err());
         std::fs::write(dir.join("artifact.json"), "{}").unwrap();

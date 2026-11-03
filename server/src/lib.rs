@@ -1,18 +1,16 @@
-//! Learning-assistant vertical plugin.
+//! Learning-assistant app.
 //!
 //! Turns a topic or a set of study materials into a knowledge map, a study
 //! plan, notes, practice questions, a review sheet, and a final report. The
 //! workflow is intentionally staged: the learner approves the plan and the
 //! practice set before the assistant moves on.
 
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 use crate::workflow::{
-    ArtifactSpec, ChatTaskSpec, GateSpec, RoleKind, RoleSpec, StageSpec, WorkflowApp,
-    WorkflowEntry, WorkflowManifest, WorkflowSpec, WORKFLOW_API_VERSION,
+    ArtifactSpec, GateSpec, RoleKind, RoleSpec, StageSpec, WorkflowApp, WorkflowSpec,
 };
 use async_trait::async_trait;
-use axum::extract::State;
 use axum::http::{header, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -24,11 +22,10 @@ use zoo_agent::agent::AgentContext;
 use zoo_agent::tool::{Tool, ToolCtx, ToolError};
 use zoo_bootstrap::{AgentTool, App as ZooApp};
 use zoo_server::ServerState;
-use zoo_shared::api::{ApiResult, PluginsResponse};
-use zoo_shared::api::{CreatePluginRunRequest, StartPluginRunRequest};
+use zoo_shared::api::ApiResult;
 use zoo_shared::tool::ToolSpec;
 
-pub mod catalog;
+pub mod api;
 pub mod runs;
 pub mod runs_api;
 mod synapse;
@@ -40,27 +37,6 @@ pub struct AssistantApp;
 const TUTOR_PROMPT: &str = include_str!("../prompts/assistant.md");
 
 impl WorkflowApp for AssistantApp {
-    fn manifest(&self) -> &WorkflowManifest {
-        static M: OnceLock<WorkflowManifest> = OnceLock::new();
-        M.get_or_init(|| WorkflowManifest {
-            id: "assistant".into(),
-            name: "My Learning Assistant".into(),
-            version: "0.1.0".into(),
-            api_version: WORKFLOW_API_VERSION,
-            description: Some(
-                "Learning assistant: turn a topic or materials into a knowledge map, study plan, notes, practice, and review."
-                    .into(),
-            ),
-            capabilities: vec!["workflow".into(), "artifacts".into()],
-            requires: vec![
-                "llm".into(),
-                "file_read".into(),
-                "web_search".into(),
-                "file_write".into(),
-            ],
-        })
-    }
-
     fn artifact_types(&self) -> Vec<ArtifactSpec> {
         vec![
             artifact("materials", "Materials", "materials.json"),
@@ -167,85 +143,6 @@ impl WorkflowApp for AssistantApp {
                 ),
             ],
         }]
-    }
-
-    fn entries(&self) -> Vec<WorkflowEntry> {
-        vec![WorkflowEntry {
-            id: "learning".into(),
-            title: "Timed practice session".into(),
-            description: "Turn knowledge points, a syllabus, or past papers into a timed practice set, then analyze the result."
-                .into(),
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "topic": { "type": "string", "description": "Topic or exam to practice" },
-                    "materials": { "type": "string", "description": "Knowledge points or study material: project-relative path, URL, or pasted text" },
-                    "syllabus": { "type": "string", "description": "Exam syllabus: project-relative path, URL, or pasted text" },
-                    "past_papers": { "type": "string", "description": "Past exam papers: project-relative path, URL, or pasted text" },
-                    "level": {
-                        "type": "string",
-                        "enum": ["beginner", "intermediate", "advanced"],
-                        "description": "Current level"
-                    },
-                    "goal": { "type": "string", "description": "Score or skill target" },
-                    "question_count": { "type": "integer", "description": "Number of questions (default 20)" },
-                    "time_limit_minutes": { "type": "integer", "description": "Timed practice length in minutes (default 30)" }
-                },
-                "required": ["topic"]
-            }),
-            output_schema: json!({
-                "type": "object",
-                "properties": {
-                    "materials": { "type": "string" },
-                    "knowledge": { "type": "string" },
-                    "quiz": { "type": "string" },
-                    "learner_state": { "type": "string" },
-                    "review": { "type": "string" },
-                    "report": { "type": "string" }
-                }
-            }),
-            ui_page: Some("index.html".into()),
-        }]
-    }
-
-    fn chat_tasks(&self) -> Vec<ChatTaskSpec> {
-        vec![
-            ChatTaskSpec {
-                id: "analyze_syllabus".into(),
-                label_zh: "分析考纲与真题".into(),
-                label_en: "Analyze syllabus and past papers".into(),
-                prompt_zh: "请分析我提供的考纲和往年真题：整理知识点、题型、难度和考点分布，作为出题依据。".into(),
-                prompt_en: "Analyze the syllabus and past papers I provided: summarize knowledge points, question types, difficulty, and topic distribution as the basis for a practice set.".into(),
-            },
-            ChatTaskSpec {
-                id: "timed_practice".into(),
-                label_zh: "开始限时刷题".into(),
-                label_en: "Start timed practice".into(),
-                prompt_zh: "请先一次一个问题地询问主题、知识点/考纲/往年真题、题量和限时（能选项的用 ask_user 选项）；确认后调用 start_practice 工具创建并启动限时刷题。".into(),
-                prompt_en: "Ask me one question at a time for the topic, knowledge points/syllabus/past papers, question count, and time limit (use ask_user options when the answer is a small set); after confirming, call the start_practice tool to create and start the timed practice.".into(),
-            },
-            ChatTaskSpec {
-                id: "review_mistakes".into(),
-                label_zh: "分析刷题结果".into(),
-                label_en: "Analyze practice result".into(),
-                prompt_zh: "请根据我的答题结果和用时分析这次刷题：正确率、薄弱知识点、错因分类、时间分配和下一步刷题建议。".into(),
-                prompt_en: "Analyze this practice run from my answers and time spent: accuracy, weak knowledge points, mistake causes, time allocation, and what to practice next.".into(),
-            },
-            ChatTaskSpec {
-                id: "explain_material".into(),
-                label_zh: "讲解知识点".into(),
-                label_en: "Explain knowledge points".into(),
-                prompt_zh: "请讲解我提供的知识点或错题：给出直觉、例子、易错点和同类题思路。".into(),
-                prompt_en: "Explain the knowledge points or mistakes I provided: intuition, examples, common pitfalls, and how to approach similar questions.".into(),
-            },
-            ChatTaskSpec {
-                id: "learning_report".into(),
-                label_zh: "刷题报告".into(),
-                label_en: "Practice report".into(),
-                prompt_zh: "请汇总这次刷题结果，生成一份报告：成绩、用时、正确率、薄弱知识点和下一步刷题计划。".into(),
-                prompt_en: "Summarize this practice run into a report: score, time spent, accuracy, weak knowledge points, and the next practice plan.".into(),
-            },
-        ]
     }
 }
 
@@ -418,11 +315,7 @@ impl Tool for StartPracticeTool {
         let created = crate::runs::create_run(
             &self.state,
             ctx.project_id.as_str(),
-            "assistant",
-            &CreatePluginRunRequest {
-                entry_id: Some("learning".into()),
-                input,
-            },
+            &crate::api::CreateRun { input },
         )
         .await
         .map_err(|error| ToolError::Execution(error.to_string()))?;
@@ -430,9 +323,8 @@ impl Tool for StartPracticeTool {
         if let Err(error) = crate::runs::start_run(
             &self.state,
             ctx.project_id.as_str(),
-            "assistant",
             &run_id,
-            &StartPluginRunRequest {
+            &crate::api::StartRun {
                 model: None,
                 stage: Some("intake".into()),
             },
@@ -501,63 +393,73 @@ async fn serve_frontend(uri: Uri) -> Response {
     StatusCode::NOT_FOUND.into_response()
 }
 
-async fn list_plugins(State(state): State<Arc<ServerState>>) -> Json<ApiResult<PluginsResponse>> {
-    Json(ApiResult::ok(crate::catalog::list(&state).await))
+async fn app_meta() -> Json<ApiResult<crate::api::Meta>> {
+    let app = AssistantApp;
+    let workflow = app
+        .workflows()
+        .into_iter()
+        .next()
+        .expect("the assistant defines one workflow");
+    Json(ApiResult::ok(crate::api::Meta {
+        name: "My Learning Assistant".into(),
+        workflow,
+        artifacts: app.artifact_types(),
+    }))
 }
 
 fn routes(state: Arc<ServerState>) -> Router {
     Router::new()
-        .route("/apps", get(list_plugins))
+        .route("/projects/{pid}/assistant", get(app_meta))
         .route(
-            "/projects/{pid}/apps/{plugin}/runs",
+            "/projects/{pid}/assistant/runs",
             get(crate::runs_api::list).post(crate::runs_api::create),
         )
         .route(
-            "/projects/{pid}/apps/{plugin}/runs/{run}",
+            "/projects/{pid}/assistant/runs/{run}",
             get(crate::runs_api::get),
         )
         .route(
-            "/projects/{pid}/apps/{plugin}/runs/{run}/synapse",
+            "/projects/{pid}/assistant/runs/{run}/synapse",
             get(crate::synapse::api::get),
         )
         .route(
-            "/projects/{pid}/apps/{plugin}/runs/{run}/synapse/publish",
+            "/projects/{pid}/assistant/runs/{run}/synapse/publish",
             post(crate::synapse::api::publish),
         )
         .route(
-            "/projects/{pid}/apps/{plugin}/runs/{run}/synapse/login",
+            "/projects/{pid}/assistant/runs/{run}/synapse/login",
             post(crate::synapse::api::login),
         )
         .route(
-            "/projects/{pid}/apps/{plugin}/runs/{run}/synapse/logout",
+            "/projects/{pid}/assistant/runs/{run}/synapse/logout",
             post(crate::synapse::api::logout),
         )
         .route(
-            "/projects/{pid}/apps/{plugin}/runs/{run}/start",
+            "/projects/{pid}/assistant/runs/{run}/start",
             post(crate::runs_api::start),
         )
         .route(
-            "/projects/{pid}/apps/{plugin}/runs/{run}/approve",
+            "/projects/{pid}/assistant/runs/{run}/approve",
             post(crate::runs_api::approve),
         )
         .route(
-            "/projects/{pid}/apps/{plugin}/runs/{run}/reject",
+            "/projects/{pid}/assistant/runs/{run}/reject",
             post(crate::runs_api::reject),
         )
         .route(
-            "/projects/{pid}/apps/{plugin}/runs/{run}/artifacts/{artifact}",
+            "/projects/{pid}/assistant/runs/{run}/artifacts/{artifact}",
             get(crate::runs_api::read_artifact).put(crate::runs_api::write_artifact),
         )
         .route(
-            "/projects/{pid}/apps/{plugin}/runs/{run}/directories",
+            "/projects/{pid}/assistant/runs/{run}/directories",
             post(crate::runs_api::create_directory),
         )
         .route(
-            "/projects/{pid}/apps/{plugin}/runs/{run}/uploads",
+            "/projects/{pid}/assistant/runs/{run}/uploads",
             post(crate::runs_api::upload),
         )
         .route(
-            "/projects/{pid}/apps/{plugin}/runs/{run}/uploads/{*rel}",
+            "/projects/{pid}/assistant/runs/{run}/uploads/{*rel}",
             get(crate::runs_api::serve_upload).delete(crate::runs_api::delete_upload),
         )
         .with_state(state)

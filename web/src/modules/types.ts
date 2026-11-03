@@ -1,19 +1,13 @@
 import type { ComponentType } from 'react'
-import type {
-  PluginInfo,
-  PluginRunInfo,
-  PluginStageInfo,
-  PluginWorkflowInfo,
-} from '@agentzoo/web-ui'
+import type { RunInfo, StageInfo, WorkflowInfo } from '../types'
 
 export interface ModuleProps {
   projectId: string
   runId: string
   moduleId: string
   artifactId?: string
-  plugin: PluginInfo | null
-  workflow: PluginWorkflowInfo | null
-  run: PluginRunInfo
+  workflow: WorkflowInfo | null
+  run: RunInfo
   onAct: (kind: 'start' | 'approve') => void
   onRunStage: (stageId: string) => void
   onReject: (reason: string) => void
@@ -29,4 +23,4 @@ export interface AssistantModule {
   component: ComponentType<ModuleProps>
 }
 
-export type { PluginStageInfo, PluginWorkflowInfo }
+export type { StageInfo, WorkflowInfo }

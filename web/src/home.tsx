@@ -1,32 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   HomeTopbar,
   MoreDialog,
   NewProjectDialog,
-  listPlugins,
   useChat,
   useI18n,
-  type PluginInfo,
 } from '@agentzoo/web-ui'
 import { AssistantDashboard } from './AssistantDashboard'
-import { ASSISTANT_PLUGIN_ID } from './constants'
 
 export function AssistantHome() {
-  const { createProject, projectId, setActiveProject } = useChat()
+  const { createProject, projectId } = useChat()
   const { t } = useI18n()
-  const [plugin, setPlugin] = useState<PluginInfo | null>(null)
   const [showNewProject, setShowNewProject] = useState(false)
   const [showMore, setShowMore] = useState(false)
-
-  useEffect(() => {
-    listPlugins()
-      .then((res) =>
-        setPlugin(
-          res.plugins.find((item) => item.id === ASSISTANT_PLUGIN_ID) ?? null,
-        ),
-      )
-      .catch(() => setPlugin(null))
-  }, [])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -34,12 +20,8 @@ export function AssistantHome() {
         onNewProject={() => setShowNewProject(true)}
         onMore={() => setShowMore(true)}
       />
-      {projectId && plugin ? (
-        <AssistantDashboard
-          plugin={plugin}
-          projectId={projectId}
-          onProjectChange={setActiveProject}
-        />
+      {projectId ? (
+        <AssistantDashboard projectId={projectId} />
       ) : (
         <div style={{ margin: '12vh auto', color: 'var(--fg-muted)' }}>
           {t('home.noProjectHint')}
