@@ -221,6 +221,24 @@
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+.studioAccountRemember {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--fg-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.studioAccountRemember input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .studioAccountActions {
   display: flex;
   gap: 6px;

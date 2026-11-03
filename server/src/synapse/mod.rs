@@ -172,6 +172,8 @@ pub struct LoginRequest {
     pub tenant_id: String,
     pub user_account: String,
     pub password: String,
+    #[serde(default)]
+    pub remember: bool,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -417,7 +419,14 @@ async fn refresh_tokens(
     Ok((token, refresh, expires_in))
 }
 
-pub async fn login(config: &SynapseConfig, request: LoginRequest) -> Result<Value, ApiError> {
+pub async fn login(
+    state: &ServerState,
+    project_id: &str,
+    plugin_id: &str,
+    run_id: &str,
+    config: &SynapseConfig,
+    request: LoginRequest,
+) -> Result<Value, ApiError> {
     let user_account = request.user_account.trim();
     if user_account.is_empty() || request.password.is_empty() {
         return Err(ApiError::InvalidRequest(
@@ -493,18 +502,42 @@ pub async fn login(config: &SynapseConfig, request: LoginRequest) -> Result<Valu
         .unwrap_or(user_account)
         .to_string();
     store_session(StudioSession {
-        tenant_id: tenant,
-        user_account,
+        tenant_id: tenant.clone(),
+        user_account: user_account.clone(),
         name,
         token,
         refresh_token,
         expires_at: Instant::now() + Duration::from_secs(expires_in),
     });
+    if request.remember {
+        let mut record = load_record(state, project_id, plugin_id, run_id)
+            .await?
+            .unwrap_or_else(|| json!({}));
+        if let Some(obj) = record.as_object_mut() {
+            obj.insert("remembered_account".into(), json!(user_account));
+            obj.insert("remembered_password".into(), json!(request.password));
+        }
+        save_record(state, project_id, plugin_id, run_id, &record).await?;
+    }
     Ok(json!({ "session": session_summary() }))
 }
 
-pub fn logout() -> Value {
+pub async fn logout(
+    state: &ServerState,
+    project_id: &str,
+    plugin_id: &str,
+    run_id: &str,
+) -> Value {
     clear_session();
+    if let Ok(Some(mut record)) = load_record(state, project_id, plugin_id, run_id).await {
+        if let Some(obj) = record.as_object_mut() {
+            obj.remove("remembered_account");
+            obj.remove("remembered_password");
+            if let Err(error) = save_record(state, project_id, plugin_id, run_id, &record).await {
+                tracing::warn!("clear remembered studio credentials failed: {error}");
+            }
+        }
+    }
     json!({ "session": Value::Null })
 }
 
@@ -517,11 +550,23 @@ pub async fn status(
     let config = SynapseConfig::from_env();
     let session = session_summary();
     let record = load_record(state, project_id, plugin_id, run_id).await?;
+    let remembered = record
+        .as_ref()
+        .and_then(|value| value.get("remembered_account"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let remembered_password = record
+        .as_ref()
+        .and_then(|value| value.get("remembered_password"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
     Ok(json!({
         "config": config.summary(),
         "session": session,
         "can_publish": config.configured() || session.is_some(),
         "record": record,
+        "remembered_account": remembered,
+        "remembered_password": remembered_password,
     }))
 }
 
