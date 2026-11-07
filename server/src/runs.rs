@@ -25,7 +25,7 @@ use axum::http::HeaderMap;
 use axum::response::Response;
 use base64::Engine;
 use uuid::Uuid;
-use zoo_shared::api::{CreateSessionRequest, ModelSelection, SendMessageRequest};
+use zoo_shared::api::{CreateConversationRequest, ModelSelection, SendMessageRequest};
 use zoo_shared::message::ProjectId;
 
 use zoo_server::service::packs::safe_join;
@@ -71,11 +71,12 @@ pub async fn create_run(state: &ServerState, pid: &str, body: &CreateRun) -> Res
     );
     run.workflow_id = app.workflows().first().map(|workflow| workflow.id.clone());
     if run.session_id.is_none() {
-        let created = sessions::create_session(
+        let created = sessions::create_conversation(
             state,
             pid,
-            &CreateSessionRequest {
+            &CreateConversationRequest {
                 agent: "main".into(),
+                title: None,
             },
         )
         .await?;
@@ -392,11 +393,12 @@ pub async fn start_run(
     }
     run.workflow_id = Some(workflow.id.clone());
     if run.session_id.is_none() {
-        let created = sessions::create_session(
+        let created = sessions::create_conversation(
             state,
             pid,
-            &CreateSessionRequest {
+            &CreateConversationRequest {
                 agent: "main".into(),
+                title: None,
             },
         )
         .await?;
@@ -563,6 +565,7 @@ async fn run_one_stage(
             text: prompt,
             model,
             images: Vec::new(),
+            agent: None,
         },
     )
     .await
