@@ -2,7 +2,7 @@
 
 ## Architecture
 
-- Single-crate workspace: `server/` (crate `zoo-agent-server`, binary `zooagent`) + `web/` (Vite/React).
+- Single-crate workspace: `server/` (crate `zoo-agent-server`, binary `zooassistant`) + `web/` (Vite/React).
 - The `agentzoo` framework is a git dependency tracking the `main` branch (`branch = "main"` in `Cargo.toml`, `github:hYuang/agentzoo#main` in `web/package.json`). It is NOT vendored in this repo. To pin a specific release, change both files to a tag, then `cargo update` + `npm install`.
 - `AssistantApp` (server/src/lib.rs) implements `zoo_bootstrap::App`; `routes()` returns a plain axum `Router`. Write handlers/routes like a standalone axum app.
 - The `web/dist` bundle is embedded into the binary at compile time via `rust-embed` (server/src/lib.rs:472). Rebuild the frontend whenever it changes, or the binary serves stale assets. If only `web/dist` changed, cargo may skip recompiling — touch `server/src/lib.rs` (or `cargo clean -p zoo-agent-server`) to force re-embedding.
@@ -10,10 +10,10 @@
 
 ## Build & run
 
-- `make build` builds the frontend first, then the server, and copies the binary to `bin/zooagent[.exe]`. Never run `cargo build` for a product build without building `web/` first.
+- `make build` builds the frontend first, then the server, and copies the binary to `bin/zooassistant[.exe]`. Never run `cargo build` for a product build without building `web/` first.
 - All cargo commands must include `--no-default-features` (the Makefile always passes it). Optional `zvec` feature: `make ZVEC=1 build`.
 - `make test` = `cargo test --no-default-features`. Single test: `cargo test --no-default-features <name>`.
-- `make run` = build + `bin/zooagent web`.
+- `make run` = build + `bin/zooassistant web`.
 - There is no lint/typecheck script. Frontend typecheck is `npm run build` in `web/` (runs `tsc --noEmit`); Rust formatting is `make fmt`.
 - `web/dist/`, `bin/`, `target/` are gitignored build outputs — never commit them.
 

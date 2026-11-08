@@ -1,6 +1,6 @@
 # Builds the assistant product (framework libs + server app + web UI).
 #
-#   make                 -> debug -> bin/zooagent[.exe]
+#   make                 -> debug -> bin/zooassistant[.exe]
 #   make build           -> same
 #   make release         -> release
 #   make run             -> run in web mode
@@ -36,19 +36,19 @@ frontend:
 build: frontend
 	$(CARGO) build --no-default-features $(ZVEC_FEATURE)
 	mkdir -p $(BIN_DIR)
-	cp target/debug/zooagent$(EXE) $(BIN_DIR)/zooagent$(EXE)
+	cp target/debug/zooassistant$(EXE) $(BIN_DIR)/zooassistant$(EXE)
 
 release: frontend
 	$(CARGO) build --release --no-default-features $(ZVEC_FEATURE)
 	mkdir -p $(BIN_DIR)
-	cp target/release/zooagent$(EXE) $(BIN_DIR)/zooagent$(EXE)
+	cp target/release/zooassistant$(EXE) $(BIN_DIR)/zooassistant$(EXE)
 
 test:
 	$(CARGO) test --no-default-features $(ZVEC_FEATURE)
 
 run:
 	$(MAKE) build
-	./$(BIN_DIR)/zooagent$(EXE) web
+	./$(BIN_DIR)/zooassistant$(EXE) web
 
 # Mode marker for `make run web`.
 web:

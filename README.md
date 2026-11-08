@@ -69,11 +69,11 @@ When a run has already been published, the module offers two modes: **Add a new 
 ## Build
 
 ```bash
-# Build the frontend, then the server binary + bin/zooagent[.exe]
+# Build the frontend, then the server binary + bin/zooassistant[.exe]
 make build
 
 # Run
-make run          # or: bin/zooagent web
+make run          # or: bin/zooassistant web
 
 # Tests
 make test

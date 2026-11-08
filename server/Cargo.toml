@@ -30,5 +30,5 @@ tracing = "0.1"
 tokio = { workspace = true }
 
 [[bin]]
-name = "zooagent"
+name = "zooassistant"
 path = "src/main.rs"
