@@ -1,32 +1,40 @@
 import { useState } from 'react'
-import {
-  HomeTopbar,
-  MoreDialog,
-  NewProjectDialog,
-  useChat,
-  useI18n,
-} from '@agentzoo/web-ui'
+import { HomeTopbar, MoreDialog, NewProjectDialog, useChat } from '@agentzoo/web-ui'
 import { AssistantDashboard } from './AssistantDashboard'
+import styles from './home.module.css'
 
+// The root page: the assistant dashboard directly. The topbar's project
+// switcher handles project selection and creation; the dashboard renders
+// inline below it.
 export function AssistantHome() {
-  const { createProject, projectId } = useChat()
-  const { t } = useI18n()
+  const { projectId, createProject } = useChat()
   const [showNewProject, setShowNewProject] = useState(false)
   const [showMore, setShowMore] = useState(false)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div className={styles.home}>
       <HomeTopbar
         onNewProject={() => setShowNewProject(true)}
         onMore={() => setShowMore(true)}
       />
-      {projectId ? (
-        <AssistantDashboard projectId={projectId} />
-      ) : (
-        <div style={{ margin: '12vh auto', color: 'var(--fg-muted)' }}>
-          {t('home.noProjectHint')}
-        </div>
-      )}
+      <div className={styles.body}>
+        {projectId ? (
+          <AssistantDashboard projectId={projectId} />
+        ) : (
+          <div className={styles.empty}>
+            <p className={styles.emptyText}>
+              Select or create a project to get started.
+            </p>
+            <button
+              type="button"
+              className={styles.emptyBtn}
+              onClick={() => setShowNewProject(true)}
+            >
+              Create a project
+            </button>
+          </div>
+        )}
+      </div>
       {showNewProject && (
         <NewProjectDialog
           onClose={() => setShowNewProject(false)}
