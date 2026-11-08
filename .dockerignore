@@ -1,0 +1,8 @@
+.git
+.github
+target
+bin
+web/node_modules
+web/dist
+zooagent.json
+*.log

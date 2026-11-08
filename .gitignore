@@ -26,3 +26,6 @@ rustc-ice-*.txt
 node_modules/
 web/dist/*
 !web/dist/.gitkeep
+
+# Local runtime configuration (contains model endpoints / credentials).
+zooagent.json

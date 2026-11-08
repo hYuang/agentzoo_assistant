@@ -1,0 +1,16 @@
+services:
+  agentzoo-assistant:
+    image: ghcr.io/hyuang/agentzoo_assistant:latest
+    container_name: agentzoo-assistant
+    ports:
+      - "127.0.0.1:9211:9211"
+    environment:
+      RUST_LOG: info
+    volumes:
+      - agentzoo-data:/data
+      # Uncomment to use custom model endpoints:
+      # - ./zooagent.json:/data/zooagent.json:ro
+    restart: unless-stopped
+
+volumes:
+  agentzoo-data:

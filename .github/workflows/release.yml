@@ -1,0 +1,181 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+          - os: macos-14
+            target: x86_64-apple-darwin
+            archive: tar.gz
+          - os: macos-14
+            target: aarch64-apple-darwin
+            archive: tar.gz
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure private framework access
+        shell: bash
+        env:
+          AGENTZOO_TOKEN: ${{ secrets.AGENTZOO_TOKEN }}
+        run: |
+          if [[ -z "$AGENTZOO_TOKEN" ]]; then
+            echo "::error::Missing AGENTZOO_TOKEN secret with read access to hYuang/agentzoo."
+            exit 1
+          fi
+          git config --global --add url."https://x-access-token:${AGENTZOO_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git config --global --add url."https://x-access-token:${AGENTZOO_TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
+          git config --global --add url."https://x-access-token:${AGENTZOO_TOKEN}@github.com/".insteadOf "git@github.com:"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build frontend
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build server
+        run: cargo build --locked --release --no-default-features --target ${{ matrix.target }} --bin zooassistant
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [[ "${RUNNER_OS}" == "Windows" ]]; then
+            cp "target/${{ matrix.target }}/release/zooassistant.exe" dist/
+          else
+            cp "target/${{ matrix.target }}/release/zooassistant" dist/
+          fi
+          cp README.md LICENSE zooagent.example.json dist/
+          name="zooassistant-${{ steps.version.outputs.value }}-${{ matrix.target }}"
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            (cd dist && 7z a -tzip "../${name}.zip" .)
+          else
+            tar -czf "${name}.tar.gz" -C dist .
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zooassistant-${{ matrix.target }}
+          path: |
+            zooassistant-*.tar.gz
+            zooassistant-*.zip
+          if-no-files-found: error
+
+  docker:
+    name: docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check framework token
+        env:
+          AGENTZOO_TOKEN: ${{ secrets.AGENTZOO_TOKEN }}
+        run: |
+          if [ -z "$AGENTZOO_TOKEN" ]; then
+            echo "::error::Missing AGENTZOO_TOKEN secret with read access to hYuang/agentzoo."
+            exit 1
+          fi
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=tag
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          secrets: |
+            AGENTZOO_TOKEN=${{ secrets.AGENTZOO_TOKEN }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    name: publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        shell: bash
+        run: |
+          cd dist
+          sha256sum zooassistant-* > SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

@@ -1,0 +1,41 @@
+{
+  "defaults": {
+    "chat": "local-chat",
+    "tts": "local-tts",
+    "embedding": "local-embedding",
+    "ocr": "local-ocr"
+  },
+  "show": [],
+  "models": [
+    {
+      "id": "local-chat",
+      "kind": "local",
+      "base_url": "http://127.0.0.1:8001/v1",
+      "name": "Local chat model",
+      "context_window": 32768
+    },
+    {
+      "id": "local-embedding",
+      "kind": "local",
+      "base_url": "http://127.0.0.1:8001",
+      "name": "Local embedding model",
+      "context_window": 8192
+    },
+    {
+      "id": "local-ocr",
+      "kind": "local",
+      "base_url": "http://127.0.0.1:8002/v1",
+      "name": "Local OCR model",
+      "input": ["image"],
+      "output": ["text"]
+    },
+    {
+      "id": "local-tts",
+      "kind": "cosyvoice",
+      "base_url": "http://127.0.0.1:50000/v1",
+      "name": "Local TTS model",
+      "input": ["text"],
+      "output": ["audio"]
+    }
+  ]
+}
