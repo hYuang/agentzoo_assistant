@@ -1,15 +1,49 @@
 import { useState } from 'react'
-import { HomeTopbar, MoreDialog, NewProjectDialog, useChat, useI18n } from '@agentzoo/web-ui'
+import {
+  HomeTopbar,
+  Layout,
+  MoreDialog,
+  NewProjectDialog,
+  useChat,
+  useI18n,
+  useLayoutSpec,
+  type LayoutNode,
+} from '@agentzoo/web-ui'
 import { AssistantDashboard } from './AssistantDashboard'
 import styles from './assistant-shell.module.css'
 
-// The conversation shell for the learning assistant: the shared home topbar
-// (project switcher, brand, actions) above the assistant dashboard. Rendered
-// at `/project/:projectId` and `/project/:projectId/topic/:topicId`; the URL
-// is the source of truth for the active project.
+const shellLayout: LayoutNode = {
+  id: 'shell',
+  dir: 'row',
+  children: [
+    {
+      id: 'center',
+      dir: 'column',
+      grow: true,
+      children: [
+        { id: 'members', panel: 'members', locked: true },
+        { id: 'transcript', panel: 'transcript', grow: true },
+        { id: 'composer', panel: 'composer' },
+      ],
+    },
+    {
+      id: 'toolbox',
+      panel: 'toolbox',
+      resizable: 'right',
+      collapsible: true,
+      defaultCollapsed: true,
+      collapsedSize: 48,
+      size: 280,
+      min: 200,
+      max: 480,
+    },
+  ],
+}
+
 export function AssistantShell() {
   const { projectId, createProject } = useChat()
   const { t } = useI18n()
+  const spec = useLayoutSpec('shell', shellLayout)
   const [showMore, setShowMore] = useState(false)
   const [showNewProject, setShowNewProject] = useState(false)
   return (
@@ -19,7 +53,10 @@ export function AssistantShell() {
         onMore={() => setShowMore(true)}
       />
       {projectId ? (
-        <AssistantDashboard projectId={projectId} />
+        <div className={styles.body}>
+          <AssistantDashboard projectId={projectId} />
+          <Layout id="shell" spec={spec} className={styles.chat} />
+        </div>
       ) : (
         <div className={styles.empty}>
           {t('home.noProjectHint')}
